@@ -1,4 +1,4 @@
-# Pathshala — Ed-tech App (Classes 6-10)
+# Goal Guru — Ed-tech App (Classes 6-10)
 
 Ye ek ready-made web app hai jo bina kisi developer ko hire kiye, khud deploy
 kar sakte hain — poori tarah free/minimal cost pe (sirf domain ka paisa lagta
@@ -72,8 +72,8 @@ baad me daal sakte hain).
    - `RAZORPAY_KEY_ID`
    - `RAZORPAY_KEY_SECRET`
 4. **Deploy** dabayein — 2-3 minute me aapki app live ho jayegi, ek link
-   milega jaise `pathshala-app.vercel.app`
-5. Chahen toh baad me apna khud ka domain (jaise `pathshala.in`) Vercel me
+   milega jaise `goal-guru-app.vercel.app`
+5. Chahen toh baad me apna khud ka domain (jaise `goalguru.in`) Vercel me
    add kar sakte hain (Settings → Domains)
 
 ### Step 6: Content daalna shuru karein

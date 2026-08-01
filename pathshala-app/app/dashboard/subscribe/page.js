@@ -50,7 +50,7 @@ export default function SubscribePage() {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: order.amount,
       currency: "INR",
-      name: "Pathshala",
+      name: "Goal Guru",
       description: `Class ${profile?.class_level} annual subscription`,
       order_id: order.id,
       handler: async function (response) {

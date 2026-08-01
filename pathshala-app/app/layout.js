@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Pathshala — Classes 6 to 10",
+  title: "Goal Guru — Classes 6 to 10",
   description: "Video lectures, live classes and study material for classes 6-10.",
 };
 

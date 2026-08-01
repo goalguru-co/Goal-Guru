@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main>
       <nav className="flex items-center justify-between px-6 md:px-10 py-4">
-        <span className="font-display text-xl font-semibold text-ink">Pathshala</span>
+        <span className="font-display text-xl font-semibold text-ink">Goal Guru</span>
         <div className="flex items-center gap-4 text-sm font-medium">
           <Link href="/login" className="hover:underline">Log in</Link>
           <Link href="/signup" className="btn-primary text-sm py-1.5">Get started</Link>

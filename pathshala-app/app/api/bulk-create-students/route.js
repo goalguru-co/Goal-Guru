@@ -29,7 +29,7 @@ export async function POST(req) {
     if (!fullName || !phone || !classLevel) continue;
 
     // Build a login email from the phone number since Supabase auth needs an email format.
-    const loginEmail = `${phone}@student.pathshala.app`;
+    const loginEmail = `${phone}@student.goalguru.app`;
     const password = randomPassword();
 
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
