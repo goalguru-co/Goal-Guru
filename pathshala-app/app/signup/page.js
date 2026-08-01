@@ -34,19 +34,24 @@ export default function SignupPage() {
       return;
     }
 
-    // Create the matching profile row (pending admin approval)
+    // Create the matching profile row via a server route (uses admin
+    // access, so it works even before the student's session/email is
+    // confirmed — avoids RLS timing issues).
     const userId = data.user?.id;
     if (userId) {
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        full_name: form.fullName,
-        phone: form.phone,
-        class_level: parseInt(form.classLevel, 10),
-        role: "student",
-        approved: false,
+      const profileRes = await fetch("/api/create-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          fullName: form.fullName,
+          phone: form.phone,
+          classLevel: parseInt(form.classLevel, 10),
+        }),
       });
-      if (profileError) {
-        setStatus({ loading: false, error: profileError.message, done: false });
+      const profileResult = await profileRes.json();
+      if (profileResult.error) {
+        setStatus({ loading: false, error: profileResult.error, done: false });
         return;
       }
     }
