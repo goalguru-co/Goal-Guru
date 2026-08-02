@@ -14,6 +14,7 @@ export default function ManageUsers() {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [unlinkedParents, setUnlinkedParents] = useState([]);
   const [students, setStudents] = useState([]);
+  const [subStatus, setSubStatus] = useState({});
   const [csvFile, setCsvFile] = useState(null);
   const [csvStatus, setCsvStatus] = useState("");
   const [generatedCreds, setGeneratedCreds] = useState([]);
@@ -77,23 +78,42 @@ export default function ManageUsers() {
   }
 
   async function grantSubscription(student) {
-    const starts = new Date();
-    const ends = new Date();
-    ends.setFullYear(ends.getFullYear() + 1);
-    await supabase.from("subscriptions").insert({
-      student_id: student.id,
-      class_level: student.class_level,
-      plan_type: "admin_grant",
-      status: "active",
-      amount: 0,
-      starts_at: starts.toISOString(),
-      ends_at: ends.toISOString(),
+    setSubStatus((s) => ({ ...s, [student.id]: "Granting..." }));
+    const { data: { session: current } } = await supabase.auth.getSession();
+    const res = await fetch("/api/admin-grant-subscription", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${current?.access_token}`,
+      },
+      body: JSON.stringify({ action: "grant", studentId: student.id, classLevel: student.class_level }),
     });
+    const result = await res.json();
+    if (result.error) {
+      setSubStatus((s) => ({ ...s, [student.id]: "Error: " + result.error }));
+      return;
+    }
+    setSubStatus((s) => ({ ...s, [student.id]: "" }));
     loadData();
   }
 
   async function revokeSubscription(student) {
-    await supabase.from("subscriptions").update({ status: "cancelled" }).eq("student_id", student.id).eq("status", "active");
+    setSubStatus((s) => ({ ...s, [student.id]: "Revoking..." }));
+    const { data: { session: current } } = await supabase.auth.getSession();
+    const res = await fetch("/api/admin-grant-subscription", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${current?.access_token}`,
+      },
+      body: JSON.stringify({ action: "revoke", studentId: student.id }),
+    });
+    const result = await res.json();
+    if (result.error) {
+      setSubStatus((s) => ({ ...s, [student.id]: "Error: " + result.error }));
+      return;
+    }
+    setSubStatus((s) => ({ ...s, [student.id]: "" }));
     loadData();
   }
 
@@ -200,6 +220,7 @@ export default function ManageUsers() {
                       <span className="text-ink/50">No active subscription</span>
                     )}
                   </p>
+                  {subStatus[s.id] && <p className="text-xs text-clay mt-1">{subStatus[s.id]}</p>}
                 </div>
                 {s.subEndsAt ? (
                   <button onClick={() => revokeSubscription(s)} className="btn-secondary text-sm py-1.5">Revoke access</button>

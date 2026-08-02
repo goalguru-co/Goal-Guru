@@ -58,7 +58,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
-        <Image src="/logo.png" alt="Goal Guru" width={56} height={56} className="rounded-full mx-auto mb-4" />
+        <Image src="/logo.png" alt="Goal Guru" width={80} height={80} className="rounded-full mx-auto mb-4" priority />
         <h1 className="font-display text-2xl font-semibold text-ink mb-6 text-center">Log in</h1>
 
         <div className="space-y-4">

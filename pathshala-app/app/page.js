@@ -6,7 +6,7 @@ export default function Home() {
     <main>
       <nav className="flex items-center justify-between px-6 md:px-10 py-4">
         <span className="flex items-center gap-2 font-display text-xl font-semibold text-ink">
-          <Image src="/logo.png" alt="Goal Guru" width={36} height={36} className="rounded-full" />
+          <Image src="/logo.png" alt="Goal Guru" width={48} height={48} className="rounded-full" priority />
           Goal Guru
         </span>
         <div className="flex items-center gap-4 text-sm font-medium">
