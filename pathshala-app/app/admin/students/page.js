@@ -6,6 +6,8 @@ import Navbar from "@/components/Navbar";
 import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 
+const ROLE_HOME = { admin: "/admin", teacher: "/teacher", parent: "/parent", student: "/dashboard" };
+
 export default function ManageUsers() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -27,6 +29,8 @@ export default function ManageUsers() {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+      if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
       setSession(session);
       loadData();
     }

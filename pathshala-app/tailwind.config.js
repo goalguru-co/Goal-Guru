@@ -7,11 +7,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#14213D",
-        paper: "#FAF7F0",
-        saffron: "#E8871E",
-        leaf: "#2E5339",
-        clay: "#B5533C",
+        ink: "#0B2E4E",
+        paper: "#F4F8FC",
+        saffron: "#5FA8D3",
+        leaf: "#0B4870",
+        clay: "#1D6FA6",
       },
       fontFamily: {
         display: ["'Fraunces'", "serif"],

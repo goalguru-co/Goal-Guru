@@ -5,40 +5,40 @@
 @tailwind utilities;
 
 body {
-  background-color: #FAF7F0;
-  color: #14213D;
+  background-color: #F4F8FC;
+  color: #0B2E4E;
 }
 
 .card {
   background: #ffffff;
-  border: 1px solid #EAE3D3;
+  border: 1px solid #DCE7F2;
   border-radius: 14px;
 }
 
 .btn-primary {
-  background-color: #B5533C;
-  color: #FAF7F0;
+  background-color: #1D6FA6;
+  color: #F4F8FC;
   border-radius: 10px;
   padding: 0.65rem 1.4rem;
   font-weight: 600;
   transition: transform 0.15s ease, background-color 0.15s ease;
 }
 .btn-primary:hover {
-  background-color: #963f2b;
+  background-color: #155A87;
   transform: translateY(-1px);
 }
 
 .btn-secondary {
   background-color: transparent;
-  color: #14213D;
-  border: 1.5px solid #14213D;
+  color: #0B2E4E;
+  border: 1.5px solid #0B2E4E;
   border-radius: 10px;
   padding: 0.6rem 1.35rem;
   font-weight: 600;
 }
 
 .input-field {
-  border: 1.5px solid #D9D2C0;
+  border: 1.5px solid #C7DAEA;
   border-radius: 10px;
   padding: 0.6rem 0.85rem;
   width: 100%;
@@ -46,13 +46,13 @@ body {
 }
 .input-field:focus {
   outline: none;
-  border-color: #B5533C;
+  border-color: #1D6FA6;
 }
 
 .label-eyebrow {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #2E5339;
+  color: #0B4870;
   font-weight: 700;
 }

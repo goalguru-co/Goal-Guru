@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
+const ROLE_HOME = { admin: "/admin", teacher: "/teacher", parent: "/parent", student: "/dashboard" };
 
 export default function ManageContent() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function ManageContent() {
   const [status, setStatus] = useState("");
 
   const [videoForm, setVideoForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "" });
-  const [liveForm, setLiveForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "", scheduledAt: "" });
+  const [liveForm, setLiveForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "", scheduledDate: "", scheduledTime: "" });
   const [materialForm, setMaterialForm] = useState({ classLevel: "6", subject: "", title: "", fileUrl: "" });
 
   useEffect(() => {
@@ -24,6 +25,8 @@ export default function ManageContent() {
         router.push("/login");
         return;
       }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+      if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
       setSession(session);
     }
     init();
@@ -56,10 +59,12 @@ export default function ManageContent() {
       subject: liveForm.subject,
       title: liveForm.title,
       youtube_id: extractYoutubeId(liveForm.youtubeId),
-      scheduled_at: liveForm.scheduledAt,
+      scheduled_at: liveForm.scheduledDate
+        ? new Date(`${liveForm.scheduledDate}T${liveForm.scheduledTime || "00:00"}`).toISOString()
+        : null,
     });
     setStatus(error ? "Error: " + error.message : "Live class added.");
-    if (!error) setLiveForm({ ...liveForm, subject: "", title: "", youtubeId: "", scheduledAt: "" });
+    if (!error) setLiveForm({ ...liveForm, subject: "", title: "", youtubeId: "", scheduledDate: "", scheduledTime: "" });
   }
 
   async function submitMaterial(e) {
@@ -81,7 +86,7 @@ export default function ManageContent() {
       <main className="px-6 md:px-10 py-10 max-w-2xl mx-auto">
         <h1 className="font-display text-3xl font-semibold text-ink">Manage content</h1>
 
-        <div className="flex gap-2 mt-8 border-b border-[#EAE3D3]">
+        <div className="flex gap-2 mt-8 border-b border-[#DCE7F2]">
           {["video", "live", "material"].map((t) => (
             <button
               key={t}
@@ -132,7 +137,10 @@ export default function ManageContent() {
               <input required className="input-field" value={liveForm.youtubeId} onChange={(e) => setLiveForm({ ...liveForm, youtubeId: e.target.value })} />
             </Field>
             <Field label="Scheduled date & time">
-              <input required type="datetime-local" className="input-field" value={liveForm.scheduledAt} onChange={(e) => setLiveForm({ ...liveForm, scheduledAt: e.target.value })} />
+              <div className="flex gap-3">
+                <input required type="date" className="input-field" value={liveForm.scheduledDate} onChange={(e) => setLiveForm({ ...liveForm, scheduledDate: e.target.value })} />
+                <input required type="time" className="input-field" value={liveForm.scheduledTime} onChange={(e) => setLiveForm({ ...liveForm, scheduledTime: e.target.value })} />
+              </div>
             </Field>
             <button className="btn-primary">Add live class</button>
           </form>

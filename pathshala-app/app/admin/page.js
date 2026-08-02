@@ -6,6 +6,8 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+const ROLE_HOME = { admin: "/admin", teacher: "/teacher", parent: "/parent", student: "/dashboard" };
+
 export default function AdminHome() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -54,7 +56,7 @@ export default function AdminHome() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-      if (profile?.role !== "admin") { router.push("/dashboard"); return; }
+      if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
       setSession(session);
       loadStats(session.user.id);
     }

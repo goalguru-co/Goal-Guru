@@ -141,7 +141,7 @@ export default function DashboardPage() {
               key={qa.key}
               onClick={() => setTab(qa.key)}
               className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium ${
-                tab === qa.key ? "bg-clay text-paper border-clay" : "bg-white border-[#EAE3D3] text-ink/70"
+                tab === qa.key ? "bg-clay text-paper border-clay" : "bg-white border-[#DCE7F2] text-ink/70"
               }`}
             >
               <span className="text-lg">{qa.icon}</span>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
               <p className="label-eyebrow mb-3">Test history</p>
               {attempts.length === 0 && <p className="text-sm text-ink/50">No attempts yet.</p>}
               {attempts.map((a) => (
-                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#EAE3D3] last:border-0">
+                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F2] last:border-0">
                   <span>{a.tests?.title || "Test"}</span>
                   <span>{a.score}/{a.total}</span>
                 </div>

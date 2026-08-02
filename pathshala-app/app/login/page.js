@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 const ROLE_HOME = {
@@ -57,7 +58,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
-        <h1 className="font-display text-2xl font-semibold text-ink mb-6">Log in</h1>
+        <Image src="/logo.png" alt="Goal Guru" width={56} height={56} className="rounded-full mx-auto mb-4" />
+        <h1 className="font-display text-2xl font-semibold text-ink mb-6 text-center">Log in</h1>
 
         <div className="space-y-4">
           <div>

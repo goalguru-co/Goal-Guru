@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -21,8 +22,9 @@ export default function Navbar({ session, role }) {
   }
 
   return (
-    <nav className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-[#EAE3D3] bg-paper/90 backdrop-blur sticky top-0 z-10">
-      <Link href="/" className="font-display text-xl font-semibold text-ink">
+    <nav className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-[#DCE7F2] bg-paper/90 backdrop-blur sticky top-0 z-10">
+      <Link href="/" className="flex items-center gap-2 font-display text-xl font-semibold text-ink">
+        <Image src="/logo.png" alt="Goal Guru" width={32} height={32} className="rounded-full" />
         Goal Guru
       </Link>
       <div className="flex items-center gap-4 text-sm font-medium">

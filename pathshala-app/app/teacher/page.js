@@ -25,7 +25,7 @@ export default function TeacherDashboard() {
   const [assignForm, setAssignForm] = useState({ classLevel: "6", subject: "", title: "", description: "", dueDate: "" });
 
   // Test creation
-  const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledAt: "" });
+  const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledDate: "", scheduledTime: "" });
   const [questions, setQuestions] = useState([{ q: "", options: ["", "", "", ""], correct: 0 }]);
 
   // Analytics
@@ -122,12 +122,14 @@ export default function TeacherDashboard() {
       subject: testForm.subject,
       title: testForm.title,
       questions,
-      scheduled_at: testForm.scheduledAt || null,
+      scheduled_at: testForm.scheduledDate
+        ? new Date(`${testForm.scheduledDate}T${testForm.scheduledTime || "00:00"}`).toISOString()
+        : null,
       created_by: session.user.id,
     });
     setStatus(error ? "Error: " + error.message : "Test created.");
     if (!error) {
-      setTestForm({ ...testForm, subject: "", title: "", scheduledAt: "" });
+      setTestForm({ ...testForm, subject: "", title: "", scheduledDate: "", scheduledTime: "" });
       setQuestions([{ q: "", options: ["", "", "", ""], correct: 0 }]);
     }
   }
@@ -148,7 +150,7 @@ export default function TeacherDashboard() {
         <h1 className="font-display text-3xl font-semibold text-ink">Teacher dashboard</h1>
         <p className="text-ink/60 text-sm mt-1">{profile?.full_name} — {profile?.subject}</p>
 
-        <div className="flex gap-2 mt-6 border-b border-[#EAE3D3] overflow-x-auto">
+        <div className="flex gap-2 mt-6 border-b border-[#DCE7F2] overflow-x-auto">
           {TABS.map((t) => (
             <button key={t} onClick={() => { setTab(t); if (t === "attendance") loadStudentsForAttendance(); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize whitespace-nowrap ${tab === t ? "border-clay text-clay" : "border-transparent text-ink/60"}`}>
@@ -215,13 +217,16 @@ export default function TeacherDashboard() {
             <input required placeholder="Subject" className="input-field" value={testForm.subject} onChange={(e) => setTestForm({ ...testForm, subject: e.target.value })} />
             <input required placeholder="Test title" className="input-field" value={testForm.title} onChange={(e) => setTestForm({ ...testForm, title: e.target.value })} />
             <div>
-              <label className="text-sm font-medium">Scheduled date (leave empty for always-available practice set)</label>
-              <input type="datetime-local" className="input-field mt-1" value={testForm.scheduledAt} onChange={(e) => setTestForm({ ...testForm, scheduledAt: e.target.value })} />
+              <label className="text-sm font-medium">Scheduled date &amp; time (leave empty for always-available practice set)</label>
+              <div className="flex gap-3 mt-1">
+                <input type="date" className="input-field" value={testForm.scheduledDate} onChange={(e) => setTestForm({ ...testForm, scheduledDate: e.target.value })} />
+                <input type="time" className="input-field" value={testForm.scheduledTime} onChange={(e) => setTestForm({ ...testForm, scheduledTime: e.target.value })} disabled={!testForm.scheduledDate} />
+              </div>
             </div>
 
             <p className="label-eyebrow">Questions</p>
             {questions.map((q, i) => (
-              <div key={i} className="border border-[#EAE3D3] rounded-lg p-3 space-y-2">
+              <div key={i} className="border border-[#DCE7F2] rounded-lg p-3 space-y-2">
                 <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
                 {q.options.map((opt, oi) => (
                   <div key={oi} className="flex items-center gap-2">

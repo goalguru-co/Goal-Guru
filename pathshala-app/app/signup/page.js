@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function SignupPage() {
   const [role, setRole] = useState("student");
@@ -70,7 +71,8 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-12">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
-        <h1 className="font-display text-2xl font-semibold text-ink mb-1">
+        <Image src="/logo.png" alt="Goal Guru" width={56} height={56} className="rounded-full mx-auto mb-4" />
+        <h1 className="font-display text-2xl font-semibold text-ink mb-1 text-center">
           Sign up
         </h1>
         <p className="text-sm text-ink/60 mb-6">
@@ -85,7 +87,7 @@ export default function SignupPage() {
               key={r}
               onClick={() => setRole(r)}
               className={`flex-1 text-sm font-medium py-2 rounded-lg border capitalize ${
-                role === r ? "bg-clay text-paper border-clay" : "border-[#D9D2C0] text-ink/70"
+                role === r ? "bg-clay text-paper border-clay" : "border-[#C7DAEA] text-ink/70"
               }`}
             >
               {r}
