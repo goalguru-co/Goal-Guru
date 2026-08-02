@@ -87,7 +87,7 @@ export default function SignupPage() {
               key={r}
               onClick={() => setRole(r)}
               className={`flex-1 text-sm font-medium py-2 rounded-lg border capitalize ${
-                role === r ? "bg-clay text-paper border-clay" : "border-[#C7DAEA] text-ink/70"
+                role === r ? "bg-clay text-paper border-clay" : "border-[#CBDCF0] text-ink/70"
               }`}
             >
               {r}

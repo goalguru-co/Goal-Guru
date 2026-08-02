@@ -86,7 +86,7 @@ export default function ManageContent() {
       <main className="px-6 md:px-10 py-10 max-w-2xl mx-auto">
         <h1 className="font-display text-3xl font-semibold text-ink">Manage content</h1>
 
-        <div className="flex gap-2 mt-8 border-b border-[#DCE7F2]">
+        <div className="flex gap-2 mt-8 border-b border-[#DCE7F7]">
           {["video", "live", "material"].map((t) => (
             <button
               key={t}

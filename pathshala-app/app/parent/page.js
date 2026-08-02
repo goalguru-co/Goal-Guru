@@ -93,7 +93,7 @@ export default function ParentDashboard() {
                   <button
                     key={c.id}
                     onClick={() => setSelectedChild(c)}
-                    className={`text-sm px-4 py-2 rounded-lg border ${selectedChild?.id === c.id ? "bg-clay text-paper border-clay" : "border-[#C7DAEA]"}`}
+                    className={`text-sm px-4 py-2 rounded-lg border ${selectedChild?.id === c.id ? "bg-clay text-paper border-clay" : "border-[#CBDCF0]"}`}
                   >
                     {c.full_name}
                   </button>
@@ -128,7 +128,7 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Test scores &amp; rankings</p>
                 {attempts.length === 0 && <p className="text-sm text-ink/50">No tests taken yet.</p>}
                 {attempts.map((a) => (
-                  <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F2] last:border-0">
+                  <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
                     <span>{a.tests?.title || "Test"} ({a.tests?.subject})</span>
                     <span>{a.score}/{a.total}</span>
                   </div>
@@ -138,7 +138,7 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Homework status</p>
                 {submissions.length === 0 && <p className="text-sm text-ink/50">No assignments yet.</p>}
                 {submissions.map((s) => (
-                  <div key={s.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F2] last:border-0">
+                  <div key={s.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
                     <span>{s.assignments?.title}</span>
                     <span className="capitalize">{s.status}</span>
                   </div>
@@ -148,7 +148,7 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Fee / payment details</p>
                 {fees.length === 0 && <p className="text-sm text-ink/50">No fee records yet.</p>}
                 {fees.map((f) => (
-                  <div key={f.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F2] last:border-0">
+                  <div key={f.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
                     <span>₹{f.amount} {f.due_date ? `— due ${f.due_date}` : ""}</span>
                     <span className="capitalize">{f.status}</span>
                   </div>
@@ -158,7 +158,7 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Teacher remarks</p>
                 {remarks.length === 0 && <p className="text-sm text-ink/50">No remarks yet.</p>}
                 {remarks.map((r) => (
-                  <p key={r.id} className="text-sm py-2 border-b border-[#DCE7F2] last:border-0">{r.remark}</p>
+                  <p key={r.id} className="text-sm py-2 border-b border-[#DCE7F7] last:border-0">{r.remark}</p>
                 ))}
               </div>
             </div>

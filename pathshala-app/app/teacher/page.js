@@ -150,7 +150,7 @@ export default function TeacherDashboard() {
         <h1 className="font-display text-3xl font-semibold text-ink">Teacher dashboard</h1>
         <p className="text-ink/60 text-sm mt-1">{profile?.full_name} — {profile?.subject}</p>
 
-        <div className="flex gap-2 mt-6 border-b border-[#DCE7F2] overflow-x-auto">
+        <div className="flex gap-2 mt-6 border-b border-[#DCE7F7] overflow-x-auto">
           {TABS.map((t) => (
             <button key={t} onClick={() => { setTab(t); if (t === "attendance") loadStudentsForAttendance(); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize whitespace-nowrap ${tab === t ? "border-clay text-clay" : "border-transparent text-ink/60"}`}>
@@ -226,7 +226,7 @@ export default function TeacherDashboard() {
 
             <p className="label-eyebrow">Questions</p>
             {questions.map((q, i) => (
-              <div key={i} className="border border-[#DCE7F2] rounded-lg p-3 space-y-2">
+              <div key={i} className="border border-[#DCE7F7] rounded-lg p-3 space-y-2">
                 <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
                 {q.options.map((opt, oi) => (
                   <div key={oi} className="flex items-center gap-2">

@@ -22,7 +22,7 @@ export default function Navbar({ session, role }) {
   }
 
   return (
-    <nav className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-[#DCE7F2] bg-paper/90 backdrop-blur sticky top-0 z-10">
+    <nav className="flex items-center justify-between px-6 md:px-10 py-4 border-b border-[#DCE7F7] bg-paper/90 backdrop-blur sticky top-0 z-10">
       <Link href="/" className="flex items-center gap-2 font-display text-xl font-semibold text-ink">
         <Image src="/logo.png" alt="Goal Guru" width={32} height={32} className="rounded-full" />
         Goal Guru

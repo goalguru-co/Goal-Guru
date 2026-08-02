@@ -8,14 +8,14 @@ import TestPlayer from "@/components/TestPlayer";
 import { useRouter } from "next/navigation";
 
 const QUICK_ACTIONS = [
-  { key: "learn", label: "Learn", icon: "🎥" },
-  { key: "practice", label: "Practice", icon: "📝" },
-  { key: "tests", label: "Tests", icon: "🎯" },
-  { key: "live", label: "Live Classes", icon: "📅" },
-  { key: "results", label: "Results", icon: "📊" },
-  { key: "notes", label: "Notes", icon: "📄" },
-  { key: "doubts", label: "Doubts", icon: "❓" },
-  { key: "profile", label: "Profile", icon: "👤" },
+  { key: "learn", label: "Learn", icon: "🎥", color: "#2F6FED" },
+  { key: "practice", label: "Practice", icon: "📝", color: "#06B6D4" },
+  { key: "tests", label: "Tests", icon: "🎯", color: "#FF4D8D" },
+  { key: "live", label: "Live Classes", icon: "📅", color: "#FFB020" },
+  { key: "results", label: "Results", icon: "📊", color: "#2F6FED" },
+  { key: "notes", label: "Notes", icon: "📄", color: "#06B6D4" },
+  { key: "doubts", label: "Doubts", icon: "❓", color: "#FF4D8D" },
+  { key: "profile", label: "Profile", icon: "👤", color: "#FFB020" },
 ];
 
 function badgeFor(points) {
@@ -140,11 +140,17 @@ export default function DashboardPage() {
             <button
               key={qa.key}
               onClick={() => setTab(qa.key)}
-              className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium ${
-                tab === qa.key ? "bg-clay text-paper border-clay" : "bg-white border-[#DCE7F2] text-ink/70"
+              style={tab === qa.key ? { background: `linear-gradient(135deg, ${qa.color}, #06B6D4)`, borderColor: qa.color } : {}}
+              className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium transition-all ${
+                tab === qa.key ? "text-white shadow-lg scale-[1.03]" : "bg-white border-[#DCE7F7] text-ink/70 hover:border-clay/50"
               }`}
             >
-              <span className="text-lg">{qa.icon}</span>
+              <span
+                className="text-lg w-8 h-8 flex items-center justify-center rounded-full"
+                style={{ background: tab === qa.key ? "rgba(255,255,255,0.25)" : `${qa.color}1A` }}
+              >
+                {qa.icon}
+              </span>
               {qa.label}
             </button>
           ))}
@@ -291,7 +297,7 @@ export default function DashboardPage() {
               <p className="label-eyebrow mb-3">Test history</p>
               {attempts.length === 0 && <p className="text-sm text-ink/50">No attempts yet.</p>}
               {attempts.map((a) => (
-                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F2] last:border-0">
+                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
                   <span>{a.tests?.title || "Test"}</span>
                   <span>{a.score}/{a.total}</span>
                 </div>

@@ -13,6 +13,7 @@ export default function ManageUsers() {
   const [session, setSession] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [unlinkedParents, setUnlinkedParents] = useState([]);
+  const [students, setStudents] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
   const [csvStatus, setCsvStatus] = useState("");
   const [generatedCreds, setGeneratedCreds] = useState([]);
@@ -23,6 +24,24 @@ export default function ManageUsers() {
 
     const { data: links } = await supabase.from("parent_links").select("*, profiles!parent_links_parent_id_fkey(full_name)").is("student_id", null);
     setUnlinkedParents(links || []);
+
+    const { data: studentsData } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone, class_level")
+      .eq("role", "student")
+      .eq("approved", true)
+      .order("class_level")
+      .order("full_name");
+
+    const { data: activeSubs } = await supabase
+      .from("subscriptions")
+      .select("student_id, ends_at")
+      .eq("status", "active");
+
+    const subMap = {};
+    (activeSubs || []).forEach((s) => { subMap[s.student_id] = s.ends_at; });
+
+    setStudents((studentsData || []).map((s) => ({ ...s, subEndsAt: subMap[s.id] || null })));
   }
 
   useEffect(() => {
@@ -54,6 +73,27 @@ export default function ManageUsers() {
       return;
     }
     await supabase.from("parent_links").update({ student_id: student.id }).eq("id", linkId);
+    loadData();
+  }
+
+  async function grantSubscription(student) {
+    const starts = new Date();
+    const ends = new Date();
+    ends.setFullYear(ends.getFullYear() + 1);
+    await supabase.from("subscriptions").insert({
+      student_id: student.id,
+      class_level: student.class_level,
+      plan_type: "admin_grant",
+      status: "active",
+      amount: 0,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+    });
+    loadData();
+  }
+
+  async function revokeSubscription(student) {
+    await supabase.from("subscriptions").update({ status: "cancelled" }).eq("student_id", student.id).eq("status", "active");
     loadData();
   }
 
@@ -140,6 +180,36 @@ export default function ManageUsers() {
             </div>
           </section>
         )}
+
+        <section className="mt-12">
+          <h2 className="font-display text-xl font-semibold mb-2">All students</h2>
+          <p className="text-sm text-ink/60 mb-4">
+            Grant free access to unlock videos, tests and live classes for a student without
+            a Razorpay payment — useful for testing, trials, or offline-paid students.
+          </p>
+          <div className="space-y-3">
+            {students.length === 0 && <p className="text-ink/60 text-sm">No approved students yet.</p>}
+            {students.map((s) => (
+              <div key={s.id} className="card p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{s.full_name} <span className="text-xs text-ink/50">— Class {s.class_level} · {s.phone}</span></p>
+                  <p className="text-xs mt-1">
+                    {s.subEndsAt ? (
+                      <span className="text-leaf font-medium">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>
+                    ) : (
+                      <span className="text-ink/50">No active subscription</span>
+                    )}
+                  </p>
+                </div>
+                {s.subEndsAt ? (
+                  <button onClick={() => revokeSubscription(s)} className="btn-secondary text-sm py-1.5">Revoke access</button>
+                ) : (
+                  <button onClick={() => grantSubscription(s)} className="btn-primary text-sm py-1.5">Grant free access</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-12">
           <h2 className="font-display text-xl font-semibold mb-2">Bulk upload school students (CSV)</h2>

@@ -74,7 +74,7 @@ export default function SubscribePage() {
         }
       },
       prefill: { email: session.user.email },
-      theme: { color: "#1D6FA6" },
+      theme: { color: "#2F6FED" },
     };
 
     const rzp = new window.Razorpay(options);

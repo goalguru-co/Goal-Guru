@@ -17,8 +17,11 @@ export default function Home() {
 
       <section className="px-6 md:px-10 py-16 md:py-24 max-w-4xl">
         <p className="label-eyebrow mb-4">Classes 6 to 10 &middot; One subscription</p>
-        <h1 className="font-display text-4xl md:text-6xl font-semibold text-ink leading-tight">
-          Everything in one place — lectures, live classes, tests, and progress tracking.
+        <h1 className="font-display text-4xl md:text-6xl font-semibold leading-tight">
+          <span className="bg-gradient-to-r from-clay via-[#1E90E8] to-leaf bg-clip-text text-transparent">
+            Everything in one place
+          </span>
+          <span className="text-ink"> — lectures, live classes, tests, and progress tracking.</span>
         </h1>
         <p className="mt-6 text-lg text-ink/70 max-w-xl">
           One app for students, parents, teachers and school admins — lectures,
@@ -32,13 +35,14 @@ export default function Home() {
 
       <section className="px-6 md:px-10 pb-20 grid md:grid-cols-4 gap-6 max-w-6xl">
         {[
-          { title: "For students", desc: "Video lectures, live classes, practice tests, and progress tracking." },
-          { title: "For parents", desc: "Attendance, test scores, homework status, and fee details for your child." },
-          { title: "For teachers", desc: "Attendance, assignments, test creation, and doubt resolution." },
-          { title: "For admins", desc: "Students, revenue, content, and school-wide reports in one dashboard." },
+          { title: "For students", desc: "Video lectures, live classes, practice tests, and progress tracking.", accent: "from-clay to-[#1E90E8]" },
+          { title: "For parents", desc: "Attendance, test scores, homework status, and fee details for your child.", accent: "from-leaf to-[#3DD9C5]" },
+          { title: "For teachers", desc: "Attendance, assignments, test creation, and doubt resolution.", accent: "from-saffron to-[#FF8A3D]" },
+          { title: "For admins", desc: "Students, revenue, content, and school-wide reports in one dashboard.", accent: "from-spark to-[#FF7AA8]" },
         ].map((f) => (
-          <div key={f.title} className="card p-6">
-            <h3 className="font-display text-lg font-semibold text-ink mb-2">{f.title}</h3>
+          <div key={f.title} className="card p-6 overflow-hidden relative">
+            <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${f.accent}`} />
+            <h3 className="font-display text-lg font-semibold text-ink mb-2 mt-1">{f.title}</h3>
             <p className="text-sm text-ink/70">{f.desc}</p>
           </div>
         ))}
