@@ -26,12 +26,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 md:px-10 pb-20 grid md:grid-cols-4 gap-6 max-w-6xl">
+      <section className="px-6 md:px-10 pb-20 grid md:grid-cols-3 gap-6 max-w-5xl">
         {[
           { title: "For students", desc: "Video lectures, live classes, practice tests, and progress tracking." },
           { title: "For parents", desc: "Attendance, test scores, homework status, and fee details for your child." },
           { title: "For teachers", desc: "Attendance, assignments, test creation, and doubt resolution." },
-          { title: "For admins", desc: "Students, revenue, content, and school-wide reports in one dashboard." },
         ].map((f) => (
           <div key={f.title} className="card p-6">
             <h3 className="font-display text-lg font-semibold text-ink mb-2">{f.title}</h3>
