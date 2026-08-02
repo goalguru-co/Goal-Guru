@@ -12,7 +12,9 @@ export default function ManageUsers() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
-  const [unlinkedParents, setUnlinkedParents] = useState([]);
+  const [parents, setParents] = useState([]);
+  const [linkPhoneInputs, setLinkPhoneInputs] = useState({});
+  const [linkStatus, setLinkStatus] = useState({});
   const [students, setStudents] = useState([]);
   const [subStatus, setSubStatus] = useState({});
   const [csvFile, setCsvFile] = useState(null);
@@ -23,8 +25,21 @@ export default function ManageUsers() {
     const { data: pending } = await supabase.from("profiles").select("*").eq("approved", false);
     setPendingUsers(pending || []);
 
-    const { data: links } = await supabase.from("parent_links").select("*, profiles!parent_links_parent_id_fkey(full_name)").is("student_id", null);
-    setUnlinkedParents(links || []);
+    const { data: parentsData } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone")
+      .eq("role", "parent")
+      .eq("approved", true)
+      .order("full_name");
+
+    const { data: allLinks } = await supabase
+      .from("parent_links")
+      .select("id, parent_id, student_id, student_phone, profiles!parent_links_student_id_fkey(full_name)");
+
+    const linkMap = {};
+    (allLinks || []).forEach((l) => { linkMap[l.parent_id] = l; });
+
+    setParents((parentsData || []).map((p) => ({ ...p, link: linkMap[p.id] || null })));
 
     const { data: studentsData } = await supabase
       .from("profiles")
@@ -67,13 +82,33 @@ export default function ManageUsers() {
     loadData();
   }
 
-  async function linkParent(linkId, studentPhone) {
-    const { data: student } = await supabase.from("profiles").select("id").eq("phone", studentPhone).eq("role", "student").maybeSingle();
+  async function linkParent(parent) {
+    const phone = (linkPhoneInputs[parent.id] || "").trim();
+    if (!phone) return;
+    setLinkStatus((s) => ({ ...s, [parent.id]: "Linking..." }));
+
+    const { data: student } = await supabase.from("profiles").select("id").eq("phone", phone).eq("role", "student").maybeSingle();
     if (!student) {
-      alert("No student found with that phone number.");
+      setLinkStatus((s) => ({ ...s, [parent.id]: "No approved student found with that phone number." }));
       return;
     }
-    await supabase.from("parent_links").update({ student_id: student.id }).eq("id", linkId);
+
+    const { error } = parent.link
+      ? await supabase.from("parent_links").update({ student_id: student.id, student_phone: phone }).eq("id", parent.link.id)
+      : await supabase.from("parent_links").insert({ parent_id: parent.id, student_id: student.id, student_phone: phone });
+
+    if (error) {
+      setLinkStatus((s) => ({ ...s, [parent.id]: "Error: " + error.message }));
+      return;
+    }
+    setLinkStatus((s) => ({ ...s, [parent.id]: "" }));
+    setLinkPhoneInputs((s) => ({ ...s, [parent.id]: "" }));
+    loadData();
+  }
+
+  async function unlinkParent(parent) {
+    if (!parent.link) return;
+    await supabase.from("parent_links").update({ student_id: null }).eq("id", parent.link.id);
     loadData();
   }
 
@@ -179,27 +214,45 @@ export default function ManageUsers() {
           </div>
         </section>
 
-        {unlinkedParents.length > 0 && (
-          <section className="mt-12">
-            <h2 className="font-display text-xl font-semibold mb-4">Unlinked parent accounts</h2>
-            <p className="text-sm text-ink/60 mb-4">
-              These parents signed up but their child's phone number didn't match any student yet.
-            </p>
-            <div className="space-y-3">
-              {unlinkedParents.map((l) => (
-                <div key={l.id} className="card p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{l.profiles?.full_name}</p>
-                    <p className="text-sm text-ink/60">Child's phone: {l.student_phone}</p>
-                  </div>
-                  <button onClick={() => linkParent(l.id, l.student_phone)} className="btn-primary text-sm py-1.5">
-                    Retry link
-                  </button>
+        <section className="mt-12">
+          <h2 className="font-display text-xl font-semibold mb-2">Parent-child links</h2>
+          <p className="text-sm text-ink/60 mb-4">
+            Each parent needs to be linked to their child's student account by phone number.
+            This normally happens automatically at signup, but you can link or relink manually here.
+          </p>
+          <div className="space-y-3">
+            {parents.length === 0 && <p className="text-ink/60 text-sm">No approved parent accounts yet.</p>}
+            {parents.map((p) => (
+              <div key={p.id} className="card p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">{p.full_name} <span className="text-xs text-ink/50">— {p.phone}</span></p>
+                  <p className="text-xs mt-1">
+                    {p.link?.student_id ? (
+                      <span className="text-leaf font-medium">Linked to {p.link.profiles?.full_name || "a student"}</span>
+                    ) : (
+                      <span className="text-ink/50">Not linked to a student yet</span>
+                    )}
+                  </p>
+                  {linkStatus[p.id] && <p className="text-xs text-clay mt-1">{linkStatus[p.id]}</p>}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+                <div className="flex items-center gap-2">
+                  <input
+                    placeholder="Child's phone"
+                    className="input-field w-40 text-sm py-1.5"
+                    value={linkPhoneInputs[p.id] || ""}
+                    onChange={(e) => setLinkPhoneInputs((s) => ({ ...s, [p.id]: e.target.value }))}
+                  />
+                  <button onClick={() => linkParent(p)} className="btn-primary text-sm py-1.5 whitespace-nowrap">
+                    {p.link?.student_id ? "Relink" : "Link"}
+                  </button>
+                  {p.link?.student_id && (
+                    <button onClick={() => unlinkParent(p)} className="btn-secondary text-sm py-1.5 whitespace-nowrap">Unlink</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-12">
           <h2 className="font-display text-xl font-semibold mb-2">All students</h2>
