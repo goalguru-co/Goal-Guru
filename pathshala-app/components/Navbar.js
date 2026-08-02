@@ -39,7 +39,7 @@ export default function Navbar({ session, role }) {
         scrolled ? "glass shadow-glass" : "bg-transparent border-b border-transparent"
       }`}
     >
-      <Link href="/" className="flex items-center gap-2 font-display text-xl font-extrabold text-ink tracking-tight">
+      <Link href={session ? (ROLE_HOME[role] || "/dashboard") : "/"} className="flex items-center gap-2 font-display text-xl font-extrabold text-ink tracking-tight">
         <Image src="/logo.png" alt="Goal Guru" width={40} height={40} className="rounded-full" priority />
         Goal Guru
       </Link>

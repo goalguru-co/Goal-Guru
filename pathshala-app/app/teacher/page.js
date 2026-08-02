@@ -30,6 +30,10 @@ export default function TeacherDashboard() {
 
   // Assignment
   const [assignForm, setAssignForm] = useState({ classLevel: "6", subject: "", title: "", description: "", dueDate: "" });
+  const [pastAssignments, setPastAssignments] = useState([]);
+  const [expandedAssignment, setExpandedAssignment] = useState(null);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
+  const [gradeInputs, setGradeInputs] = useState({});
 
   // Test creation
   const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledDate: "", scheduledTime: "" });
@@ -68,10 +72,38 @@ export default function TeacherDashboard() {
         bySubject[key].count += 1;
       });
       setAnalytics(Object.entries(bySubject).map(([k, v]) => ({ key: k, pct: v.total ? Math.round((v.correct / v.total) * 100) : 0, attempts: v.count })));
+      loadAssignments(session.user.id);
       setLoading(false);
     }
     init();
   }, [router]);
+
+  async function loadAssignments(userId) {
+    const { data } = await supabase.from("assignments").select("*").eq("created_by", userId).order("created_at", { ascending: false });
+    setPastAssignments(data || []);
+  }
+
+  async function loadSubmissions(assignmentId) {
+    if (expandedAssignment === assignmentId) {
+      setExpandedAssignment(null);
+      return;
+    }
+    setExpandedAssignment(assignmentId);
+    const { data } = await supabase
+      .from("assignment_submissions")
+      .select("*, profiles!assignment_submissions_student_id_fkey(full_name)")
+      .eq("assignment_id", assignmentId)
+      .order("submitted_at", { ascending: false });
+    setAssignmentSubmissions(data || []);
+  }
+
+  async function saveGrade(submissionId) {
+    const grade = (gradeInputs[submissionId] || "").trim();
+    if (!grade) return;
+    await supabase.from("assignment_submissions").update({ grade, status: "graded" }).eq("id", submissionId);
+    setAssignmentSubmissions((subs) => subs.map((s) => (s.id === submissionId ? { ...s, grade, status: "graded" } : s)));
+    setGradeInputs((g) => ({ ...g, [submissionId]: "" }));
+  }
 
   async function loadStudentsForAttendance() {
     const { data } = await supabase.from("profiles").select("id, full_name").eq("role", "student").eq("class_level", parseInt(attClass, 10)).eq("approved", true);
@@ -105,7 +137,10 @@ export default function TeacherDashboard() {
       created_by: session.user.id,
     });
     setStatus(error ? "Error: " + error.message : "Assignment added.");
-    if (!error) setAssignForm({ ...assignForm, subject: "", title: "", description: "", dueDate: "" });
+    if (!error) {
+      setAssignForm({ ...assignForm, subject: "", title: "", description: "", dueDate: "" });
+      loadAssignments(session.user.id);
+    }
   }
 
   function addQuestion() {
@@ -206,16 +241,65 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "assignments" && (
-          <form onSubmit={submitAssignment} className="card p-6 space-y-4 max-w-lg">
-            <select className="input-field" value={assignForm.classLevel} onChange={(e) => setAssignForm({ ...assignForm, classLevel: e.target.value })}>
-              {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
-            </select>
-            <input required placeholder="Subject" className="input-field" value={assignForm.subject} onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })} />
-            <input required placeholder="Title" className="input-field" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })} />
-            <textarea placeholder="Description" className="input-field" rows={3} value={assignForm.description} onChange={(e) => setAssignForm({ ...assignForm, description: e.target.value })} />
-            <input type="date" className="input-field" value={assignForm.dueDate} onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })} />
-            <button className="btn-primary">Add assignment</button>
-          </form>
+          <div className="space-y-6">
+            <form onSubmit={submitAssignment} className="card p-6 space-y-4 max-w-lg">
+              <select className="input-field" value={assignForm.classLevel} onChange={(e) => setAssignForm({ ...assignForm, classLevel: e.target.value })}>
+                {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+              </select>
+              <input required placeholder="Subject" className="input-field" value={assignForm.subject} onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })} />
+              <input required placeholder="Title" className="input-field" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })} />
+              <textarea placeholder="Description" className="input-field" rows={3} value={assignForm.description} onChange={(e) => setAssignForm({ ...assignForm, description: e.target.value })} />
+              <input type="date" className="input-field" value={assignForm.dueDate} onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })} />
+              <button className="btn-primary">Add assignment</button>
+            </form>
+
+            <div>
+              <p className="label-eyebrow mb-3">Past assignments</p>
+              <div className="space-y-3">
+                {pastAssignments.length === 0 && <EmptyState icon="📚" title="No assignments created yet" />}
+                {pastAssignments.map((a) => (
+                  <div key={a.id} className="card p-4">
+                    <button onClick={() => loadSubmissions(a.id)} className="w-full flex items-center justify-between text-left">
+                      <div>
+                        <p className="label-eyebrow mb-1">{a.subject} — Class {a.class_level}</p>
+                        <p className="font-semibold">{a.title}</p>
+                        {a.due_date && <p className="text-xs text-ink/50 mt-1">Due {new Date(a.due_date).toLocaleDateString()}</p>}
+                      </div>
+                      <span className="text-sm text-clay font-semibold whitespace-nowrap">
+                        {expandedAssignment === a.id ? "Hide submissions ▲" : "View submissions ▼"}
+                      </span>
+                    </button>
+
+                    {expandedAssignment === a.id && (
+                      <div className="mt-4 pt-4 border-t border-line space-y-3">
+                        {assignmentSubmissions.length === 0 && <p className="text-sm text-ink/50">No submissions yet.</p>}
+                        {assignmentSubmissions.map((s) => (
+                          <div key={s.id} className="flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm bg-ink/[0.02] rounded-lg p-3">
+                            <div>
+                              <p className="font-medium">{s.profiles?.full_name || "Student"}</p>
+                              <a href={s.file_url} target="_blank" rel="noreferrer" className="text-clay text-xs font-semibold">View submission</a>
+                              {s.grade && <span className="ml-2 text-xs text-leaf font-semibold">Graded — {s.grade}</span>}
+                            </div>
+                            {!s.grade && (
+                              <div className="flex gap-2">
+                                <input
+                                  placeholder="Grade / feedback"
+                                  className="input-field text-sm py-1.5 w-40"
+                                  value={gradeInputs[s.id] || ""}
+                                  onChange={(e) => setGradeInputs((g) => ({ ...g, [s.id]: e.target.value }))}
+                                />
+                                <button onClick={() => saveGrade(s.id)} className="btn-primary text-sm py-1.5">Save</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {tab === "tests" && (

@@ -15,6 +15,7 @@ const QUICK_ACTIONS = [
   { key: "learn", label: "Learn", icon: "🎥", color: "#2F6FED" },
   { key: "practice", label: "Practice", icon: "📝", color: "#06B6D4" },
   { key: "tests", label: "Tests", icon: "🎯", color: "#FF4D8D" },
+  { key: "assignments", label: "Assignments", icon: "📚", color: "#2F6FED" },
   { key: "live", label: "Live Classes", icon: "📅", color: "#FFB020" },
   { key: "results", label: "Results", icon: "📊", color: "#2F6FED" },
   { key: "notes", label: "Notes", icon: "📄", color: "#06B6D4" },
@@ -38,6 +39,9 @@ export default function DashboardPage() {
   const [material, setMaterial] = useState([]);
   const [tests, setTests] = useState([]);
   const [attempts, setAttempts] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [submitLinks, setSubmitLinks] = useState({});
   const [doubts, setDoubts] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [tab, setTab] = useState("overview");
@@ -67,12 +71,14 @@ export default function DashboardPage() {
       .maybeSingle();
     setSubscription(sub);
 
-    const [{ data: videoData }, { data: liveData }, { data: materialData }, { data: testData }, { data: attemptData }, { data: doubtData }, { data: annData }] = await Promise.all([
+    const [{ data: videoData }, { data: liveData }, { data: materialData }, { data: testData }, { data: attemptData }, { data: assignmentData }, { data: submissionData }, { data: doubtData }, { data: annData }] = await Promise.all([
       supabase.from("videos").select("*").eq("class_level", classLevel).order("subject").order("sort_order"),
       supabase.from("live_classes").select("*").eq("class_level", classLevel).order("scheduled_at"),
       supabase.from("study_material").select("*").eq("class_level", classLevel),
       supabase.from("tests").select("*").eq("class_level", classLevel),
       supabase.from("test_attempts").select("*, tests(subject, title)").eq("student_id", session.user.id),
+      supabase.from("assignments").select("*").eq("class_level", classLevel).order("due_date"),
+      supabase.from("assignment_submissions").select("*").eq("student_id", session.user.id),
       supabase.from("doubts").select("*").eq("student_id", session.user.id).order("created_at", { ascending: false }),
       supabase.from("announcements").select("*").or(`class_level.eq.${classLevel},class_level.is.null`).order("created_at", { ascending: false }).limit(5),
     ]);
@@ -82,12 +88,26 @@ export default function DashboardPage() {
     setMaterial(materialData || []);
     setTests(testData || []);
     setAttempts(attemptData || []);
+    setAssignments(assignmentData || []);
+    setSubmissions(submissionData || []);
     setDoubts(doubtData || []);
     setAnnouncements(annData || []);
     setLoading(false);
   }
 
   useEffect(() => { loadAll(); }, []);
+
+  async function submitAssignment(assignmentId) {
+    const fileUrl = (submitLinks[assignmentId] || "").trim();
+    if (!fileUrl) return;
+    await supabase.from("assignment_submissions").insert({
+      assignment_id: assignmentId,
+      student_id: session.user.id,
+      file_url: fileUrl,
+    });
+    setSubmitLinks((s) => ({ ...s, [assignmentId]: "" }));
+    loadAll();
+  }
 
   async function submitDoubt(e) {
     e.preventDefault();
@@ -111,6 +131,9 @@ export default function DashboardPage() {
 
   const attemptedTests = {};
   attempts.forEach((a) => { attemptedTests[a.test_id] = a; });
+
+  const submittedAssignments = {};
+  submissions.forEach((s) => { submittedAssignments[s.assignment_id] = s; });
 
   const subjectScores = {};
   attempts.forEach((a) => {
@@ -259,6 +282,51 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "assignments" && (
+          <div className="space-y-3">
+            {assignments.length === 0 && <EmptyState icon="📚" title="No assignments yet" subtitle="Your teacher hasn't posted any homework for this class yet." />}
+            {assignments.map((a) => {
+              const submission = submittedAssignments[a.id];
+              const overdue = a.due_date && new Date(a.due_date) < new Date() && !submission;
+              return (
+                <div key={a.id} className="card p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="label-eyebrow mb-1">{a.subject}</p>
+                      <h3 className="font-semibold">{a.title}</h3>
+                      {a.description && <p className="text-sm text-ink/60 mt-1">{a.description}</p>}
+                      {a.due_date && (
+                        <p className={`text-xs mt-2 font-medium ${overdue ? "text-spark" : "text-ink/50"}`}>
+                          Due {new Date(a.due_date).toLocaleDateString()}{overdue ? " — overdue" : ""}
+                        </p>
+                      )}
+                      {a.file_url && (
+                        <a href={a.file_url} target="_blank" rel="noreferrer" className="text-xs text-clay font-semibold mt-1 inline-block">View attachment</a>
+                      )}
+                    </div>
+                    {submission ? (
+                      <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full whitespace-nowrap">
+                        {submission.grade ? `Graded — ${submission.grade}` : "Submitted"}
+                      </span>
+                    ) : null}
+                  </div>
+                  {!submission && (
+                    <div className="flex gap-2 mt-3">
+                      <input
+                        placeholder="Paste a link to your work (Drive, doc, photo, etc.)"
+                        className="input-field text-sm"
+                        value={submitLinks[a.id] || ""}
+                        onChange={(e) => setSubmitLinks((s) => ({ ...s, [a.id]: e.target.value }))}
+                      />
+                      <button onClick={() => submitAssignment(a.id)} className="btn-primary text-sm py-1.5 whitespace-nowrap">Submit</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
