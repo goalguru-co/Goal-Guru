@@ -95,7 +95,7 @@ export default function SubscribePage() {
             <span className="text-base font-body text-ink/50"> / year</span>
           </p>
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
-            <li>✓ Sabhi subjects ke video lectures</li>
+            <li>✓ Video lectures for all subjects</li>
             <li>✓ Live classes access</li>
             <li>✓ Study material download</li>
           </ul>

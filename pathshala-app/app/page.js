@@ -14,23 +14,24 @@ export default function Home() {
       <section className="px-6 md:px-10 py-16 md:py-24 max-w-4xl">
         <p className="label-eyebrow mb-4">Classes 6 to 10 &middot; One subscription</p>
         <h1 className="font-display text-4xl md:text-6xl font-semibold text-ink leading-tight">
-          Sab kuch ek jagah — lectures, live classes, study material.
+          Everything in one place — lectures, live classes, tests, and progress tracking.
         </h1>
         <p className="mt-6 text-lg text-ink/70 max-w-xl">
-          Apni class chuniye, subscribe kijiye, aur video lectures, live classes
-          aur notes ka access turant paiye — apne phone par, apni bhasha me.
+          One app for students, parents, teachers and school admins — lectures,
+          live classes, practice tests, attendance, and results, all in sync.
         </p>
         <div className="mt-8 flex gap-4">
-          <Link href="/signup" className="btn-primary">Student sign up</Link>
+          <Link href="/signup" className="btn-primary">Sign up</Link>
           <Link href="/login" className="btn-secondary">I already have an account</Link>
         </div>
       </section>
 
-      <section className="px-6 md:px-10 pb-20 grid md:grid-cols-3 gap-6 max-w-5xl">
+      <section className="px-6 md:px-10 pb-20 grid md:grid-cols-4 gap-6 max-w-6xl">
         {[
-          { title: "Video lectures", desc: "Class aur subject ke hisaab se organized recorded lectures." },
-          { title: "Live classes", desc: "Teacher ke saath live doubt-solving aur teaching sessions." },
-          { title: "Study material", desc: "Notes aur practice sheets, kabhi bhi download karke padhein." },
+          { title: "For students", desc: "Video lectures, live classes, practice tests, and progress tracking." },
+          { title: "For parents", desc: "Attendance, test scores, homework status, and fee details for your child." },
+          { title: "For teachers", desc: "Attendance, assignments, test creation, and doubt resolution." },
+          { title: "For admins", desc: "Students, revenue, content, and school-wide reports in one dashboard." },
         ].map((f) => (
           <div key={f.title} className="card p-6">
             <h3 className="font-display text-lg font-semibold text-ink mb-2">{f.title}</h3>

@@ -5,6 +5,13 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+const ROLE_HOME = {
+  admin: "/admin",
+  teacher: "/teacher",
+  parent: "/parent",
+  student: "/dashboard",
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -32,42 +39,34 @@ export default function LoginPage() {
       .single();
 
     if (!profile?.approved) {
-      setError("Aapka account abhi admin approval ka wait kar raha hai.");
+      setError("Your account is still waiting for admin approval.");
       setLoading(false);
       return;
     }
 
-    router.push(profile.role === "admin" ? "/admin" : "/dashboard");
+    // Update last_active_date for the "active users today" admin stat.
+    await supabase
+      .from("profiles")
+      .update({ last_active_date: new Date().toISOString().slice(0, 10) })
+      .eq("id", data.user.id);
+
+    router.push(ROLE_HOME[profile.role] || "/dashboard");
     router.refresh();
   }
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
-        <h1 className="font-display text-2xl font-semibold text-ink mb-6">
-          Log in
-        </h1>
+        <h1 className="font-display text-2xl font-semibold text-ink mb-6">Log in</h1>
 
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Email</label>
-            <input
-              required
-              type="email"
-              className="input-field mt-1"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <input required type="email" className="input-field mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
             <label className="text-sm font-medium">Password</label>
-            <input
-              required
-              type="password"
-              className="input-field mt-1"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <input required type="password" className="input-field mt-1" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </div>
 
@@ -78,10 +77,8 @@ export default function LoginPage() {
         </button>
 
         <p className="text-sm text-center mt-4 text-ink/60">
-          Naye ho?{" "}
-          <Link href="/signup" className="text-clay font-medium">
-            Sign up
-          </Link>
+          New here?{" "}
+          <Link href="/signup" className="text-clay font-medium">Sign up</Link>
         </p>
       </form>
     </main>

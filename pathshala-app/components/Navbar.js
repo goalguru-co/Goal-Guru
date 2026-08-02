@@ -4,6 +4,13 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
+const ROLE_HOME = {
+  admin: "/admin",
+  teacher: "/teacher",
+  parent: "/parent",
+  student: "/dashboard",
+};
+
 export default function Navbar({ session, role }) {
   const router = useRouter();
 
@@ -21,16 +28,9 @@ export default function Navbar({ session, role }) {
       <div className="flex items-center gap-4 text-sm font-medium">
         {session ? (
           <>
-            {role === "admin" && (
-              <Link href="/admin" className="text-leaf hover:underline">
-                Admin panel
-              </Link>
-            )}
-            {role === "student" && (
-              <Link href="/dashboard" className="hover:underline">
-                My classes
-              </Link>
-            )}
+            <Link href={ROLE_HOME[role] || "/dashboard"} className="hover:underline capitalize">
+              {role} home
+            </Link>
             <button onClick={handleLogout} className="btn-secondary text-sm py-1.5">
               Log out
             </button>
