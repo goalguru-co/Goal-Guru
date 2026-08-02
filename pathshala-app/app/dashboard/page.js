@@ -105,6 +105,9 @@ export default function DashboardPage() {
   const scheduledTests = tests.filter((t) => t.scheduled_at);
   const continueVideo = videos[0];
 
+  const attemptedTests = {};
+  attempts.forEach((a) => { attemptedTests[a.test_id] = a; });
+
   const subjectScores = {};
   attempts.forEach((a) => {
     const subj = a.tests?.subject || "General";
@@ -234,18 +237,25 @@ export default function DashboardPage() {
                 {(tab === "practice" ? practiceTests : scheduledTests).length === 0 && (
                   <p className="text-ink/60">No {tab === "practice" ? "practice sets" : "scheduled tests"} yet.</p>
                 )}
-                {(tab === "practice" ? practiceTests : scheduledTests).map((t) => (
-                  <div key={t.id} className="card p-4 flex items-center justify-between">
-                    <div>
-                      <p className="label-eyebrow mb-1">{t.subject}</p>
-                      <p className="font-medium">{t.title}</p>
-                      <p className="text-xs text-ink/50">{t.questions?.length || 0} questions {t.scheduled_at ? `· ${new Date(t.scheduled_at).toLocaleString()}` : ""}</p>
+                {(tab === "practice" ? practiceTests : scheduledTests).map((t) => {
+                  const attempt = attemptedTests[t.id];
+                  return (
+                    <div key={t.id} className="card p-4 flex items-center justify-between">
+                      <div>
+                        <p className="label-eyebrow mb-1">{t.subject}</p>
+                        <p className="font-medium">{t.title}</p>
+                        <p className="text-xs text-ink/50">{t.questions?.length || 0} questions {t.scheduled_at ? `· ${new Date(t.scheduled_at).toLocaleString()}` : ""}</p>
+                      </div>
+                      {attempt ? (
+                        <span className="text-sm font-medium text-leaf">Completed — {attempt.score}/{attempt.total}</span>
+                      ) : (
+                        <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
+                          {hasAccess ? "Start" : "Locked"}
+                        </button>
+                      )}
                     </div>
-                    <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
-                      {hasAccess ? "Start" : "Locked"}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

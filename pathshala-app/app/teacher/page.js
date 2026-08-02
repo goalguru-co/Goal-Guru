@@ -26,7 +26,7 @@ export default function TeacherDashboard() {
 
   // Test creation
   const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledDate: "", scheduledTime: "" });
-  const [questions, setQuestions] = useState([{ q: "", options: ["", "", "", ""], correct: 0 }]);
+  const [questions, setQuestions] = useState([{ q: "", options: ["", "", "", ""], correct: null }]);
 
   // Analytics
   const [analytics, setAnalytics] = useState([]);
@@ -101,7 +101,7 @@ export default function TeacherDashboard() {
   }
 
   function addQuestion() {
-    setQuestions([...questions, { q: "", options: ["", "", "", ""], correct: 0 }]);
+    setQuestions([...questions, { q: "", options: ["", "", "", ""], correct: null }]);
   }
   function updateQuestion(i, field, value) {
     const copy = [...questions];
@@ -116,6 +116,11 @@ export default function TeacherDashboard() {
 
   async function submitTest(e) {
     e.preventDefault();
+    const missingIndex = questions.findIndex((q) => q.correct === null || q.correct === undefined);
+    if (missingIndex !== -1) {
+      setStatus(`Please mark the correct answer for question ${missingIndex + 1} before saving.`);
+      return;
+    }
     setStatus("Saving test...");
     const { error } = await supabase.from("tests").insert({
       class_level: parseInt(testForm.classLevel, 10),
@@ -130,7 +135,7 @@ export default function TeacherDashboard() {
     setStatus(error ? "Error: " + error.message : "Test created.");
     if (!error) {
       setTestForm({ ...testForm, subject: "", title: "", scheduledDate: "", scheduledTime: "" });
-      setQuestions([{ q: "", options: ["", "", "", ""], correct: 0 }]);
+      setQuestions([{ q: "", options: ["", "", "", ""], correct: null }]);
     }
   }
 
@@ -228,6 +233,7 @@ export default function TeacherDashboard() {
             {questions.map((q, i) => (
               <div key={i} className="border border-[#DCE7F7] rounded-lg p-3 space-y-2">
                 <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
+                <p className="text-xs text-ink/50">Select the radio button next to the correct option:</p>
                 {q.options.map((opt, oi) => (
                   <div key={oi} className="flex items-center gap-2">
                     <input type="radio" name={`correct-${i}`} checked={q.correct === oi} onChange={() => updateQuestion(i, "correct", oi)} />
