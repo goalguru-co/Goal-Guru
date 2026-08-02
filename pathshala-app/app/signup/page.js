@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -25,36 +24,25 @@ export default function SignupPage() {
     e.preventDefault();
     setStatus({ loading: true, error: "", done: false });
 
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
+    const res = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: form.email,
+        password: form.password,
+        role,
+        fullName: form.fullName,
+        phone: form.phone,
+        classLevel: role === "student" ? parseInt(form.classLevel, 10) : null,
+        subject: role === "teacher" ? form.subject : null,
+        childPhone: role === "parent" ? form.childPhone : null,
+      }),
     });
+    const result = await res.json();
 
-    if (error) {
-      setStatus({ loading: false, error: error.message, done: false });
+    if (result.error) {
+      setStatus({ loading: false, error: result.error, done: false });
       return;
-    }
-
-    const userId = data.user?.id;
-    if (userId) {
-      const res = await fetch("/api/create-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          role,
-          fullName: form.fullName,
-          phone: form.phone,
-          classLevel: role === "student" ? parseInt(form.classLevel, 10) : null,
-          subject: role === "teacher" ? form.subject : null,
-          childPhone: role === "parent" ? form.childPhone : null,
-        }),
-      });
-      const result = await res.json();
-      if (result.error) {
-        setStatus({ loading: false, error: result.error, done: false });
-        return;
-      }
     }
 
     setStatus({ loading: false, error: "", done: true });
