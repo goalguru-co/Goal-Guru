@@ -56,31 +56,31 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
+    <main className="min-h-screen aurora-bg aurora-dark flex items-center justify-center px-6 py-12">
+      <form onSubmit={handleSubmit} className="glass-dark noise rounded-[24px] p-8 w-full max-w-md shadow-glow-lg">
         <Image src="/logo.png" alt="Goal Guru" width={80} height={80} className="rounded-full mx-auto mb-4" priority />
-        <h1 className="font-display text-2xl font-semibold text-ink mb-6 text-center">Log in</h1>
+        <h1 className="font-display text-2xl font-extrabold text-white mb-6 text-center tracking-tight">Log in</h1>
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Email</label>
+            <label className="text-sm font-semibold text-white/80">Email</label>
             <input required type="email" className="input-field mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className="text-sm font-medium">Password</label>
+            <label className="text-sm font-semibold text-white/80">Password</label>
             <input required type="password" className="input-field mt-1" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </div>
 
-        {error && <p className="text-clay text-sm mt-4">{error}</p>}
+        {error && <p className="text-[#FF9FC4] text-sm mt-4">{error}</p>}
 
         <button disabled={loading} className="btn-primary w-full mt-6">
           {loading ? "Logging in..." : "Log in"}
         </button>
 
-        <p className="text-sm text-center mt-4 text-ink/60">
+        <p className="text-sm text-center mt-4 text-white/60">
           New here?{" "}
-          <Link href="/signup" className="text-clay font-medium">Sign up</Link>
+          <Link href="/signup" className="text-[#5FD4EE] font-semibold">Sign up</Link>
         </p>
       </form>
     </main>

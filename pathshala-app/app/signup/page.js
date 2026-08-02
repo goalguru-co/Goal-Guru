@@ -51,12 +51,12 @@ export default function SignupPage() {
 
   if (status.done) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-6">
-        <div className="card p-8 max-w-md text-center">
-          <h1 className="font-display text-2xl font-semibold text-ink mb-3">
+      <main className="min-h-screen aurora-bg aurora-dark flex items-center justify-center px-6">
+        <div className="glass-dark noise rounded-[24px] p-8 max-w-md text-center shadow-glow-lg">
+          <h1 className="font-display text-2xl font-extrabold text-white mb-3 tracking-tight">
             Almost there
           </h1>
-          <p className="text-ink/70">
+          <p className="text-white/70">
             Your account has been created. An admin needs to approve it before
             you can log in — you'll be notified once that's done.
           </p>
@@ -69,13 +69,13 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-12">
-      <form onSubmit={handleSubmit} className="card p-8 w-full max-w-md">
+    <main className="min-h-screen aurora-bg aurora-dark flex items-center justify-center px-6 py-12">
+      <form onSubmit={handleSubmit} className="glass-dark noise rounded-[24px] p-8 w-full max-w-md shadow-glow-lg">
         <Image src="/logo.png" alt="Goal Guru" width={80} height={80} className="rounded-full mx-auto mb-4" priority />
-        <h1 className="font-display text-2xl font-semibold text-ink mb-1 text-center">
+        <h1 className="font-display text-2xl font-extrabold text-white mb-1 text-center tracking-tight">
           Sign up
         </h1>
-        <p className="text-sm text-ink/60 mb-6">
+        <p className="text-sm text-white/60 mb-6 text-center">
           After signing up, an admin will need to approve your account before
           you can log in.
         </p>
@@ -86,8 +86,8 @@ export default function SignupPage() {
               type="button"
               key={r}
               onClick={() => setRole(r)}
-              className={`flex-1 text-sm font-medium py-2 rounded-lg border capitalize ${
-                role === r ? "bg-clay text-paper border-clay" : "border-[#CBDCF0] text-ink/70"
+              className={`flex-1 text-sm font-semibold py-2 rounded-lg border capitalize transition-colors ${
+                role === r ? "bg-clay text-white border-clay" : "border-white/20 text-white/70 hover:bg-white/5"
               }`}
             >
               {r}
@@ -97,17 +97,17 @@ export default function SignupPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Full name</label>
+            <label className="text-sm font-semibold text-white/80">Full name</label>
             <input required className="input-field mt-1" value={form.fullName} onChange={(e) => update("fullName", e.target.value)} />
           </div>
           <div>
-            <label className="text-sm font-medium">Phone number</label>
+            <label className="text-sm font-semibold text-white/80">Phone number</label>
             <input required className="input-field mt-1" value={form.phone} onChange={(e) => update("phone", e.target.value)} />
           </div>
 
           {role === "student" && (
             <div>
-              <label className="text-sm font-medium">Class</label>
+              <label className="text-sm font-semibold text-white/80">Class</label>
               <select className="input-field mt-1" value={form.classLevel} onChange={(e) => update("classLevel", e.target.value)}>
                 {[6, 7, 8, 9, 10].map((c) => <option key={c} value={c}>Class {c}</option>)}
               </select>
@@ -116,40 +116,40 @@ export default function SignupPage() {
 
           {role === "teacher" && (
             <div>
-              <label className="text-sm font-medium">Subject you teach</label>
+              <label className="text-sm font-semibold text-white/80">Subject you teach</label>
               <input required className="input-field mt-1" value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="e.g. Mathematics" />
             </div>
           )}
 
           {role === "parent" && (
             <div>
-              <label className="text-sm font-medium">Child's registered phone number</label>
+              <label className="text-sm font-semibold text-white/80">Child's registered phone number</label>
               <input required className="input-field mt-1" value={form.childPhone} onChange={(e) => update("childPhone", e.target.value)} />
-              <p className="text-xs text-ink/50 mt-1">
+              <p className="text-xs text-white/50 mt-1">
                 We'll link your account to your child's account automatically if the number matches.
               </p>
             </div>
           )}
 
           <div>
-            <label className="text-sm font-medium">Email</label>
+            <label className="text-sm font-semibold text-white/80">Email</label>
             <input required type="email" className="input-field mt-1" value={form.email} onChange={(e) => update("email", e.target.value)} />
           </div>
           <div>
-            <label className="text-sm font-medium">Password</label>
+            <label className="text-sm font-semibold text-white/80">Password</label>
             <input required type="password" minLength={6} className="input-field mt-1" value={form.password} onChange={(e) => update("password", e.target.value)} />
           </div>
         </div>
 
-        {status.error && <p className="text-clay text-sm mt-4">{status.error}</p>}
+        {status.error && <p className="text-[#FF9FC4] text-sm mt-4">{status.error}</p>}
 
         <button disabled={status.loading} className="btn-primary w-full mt-6">
           {status.loading ? "Creating account..." : "Create account"}
         </button>
 
-        <p className="text-sm text-center mt-4 text-ink/60">
+        <p className="text-sm text-center mt-4 text-white/60">
           Already have an account?{" "}
-          <Link href="/login" className="text-clay font-medium">Log in</Link>
+          <Link href="/login" className="text-[#5FD4EE] font-semibold">Log in</Link>
         </p>
       </form>
     </main>
