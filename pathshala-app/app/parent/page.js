@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
+import EmptyState from "@/components/EmptyState";
+import PageLoading from "@/components/PageLoading";
 import { useRouter } from "next/navigation";
 
 export default function ParentDashboard() {
@@ -62,7 +66,7 @@ export default function ParentDashboard() {
     loadChildData();
   }, [selectedChild]);
 
-  if (loading) return <p className="p-10 text-center text-ink/60">Loading...</p>;
+  if (loading) return <PageLoading />;
 
   const presentCount = attendance.filter((a) => a.status === "present").length;
   const attendancePct = attendance.length ? Math.round((presentCount / attendance.length) * 100) : null;
@@ -73,27 +77,28 @@ export default function ParentDashboard() {
   return (
     <>
       <Navbar session={session} role="parent" />
-      <main className="px-6 md:px-10 py-8 max-w-5xl mx-auto">
-        <h1 className="font-display text-3xl font-semibold text-ink">Parent dashboard</h1>
+      <main className="px-6 md:px-10 py-8 max-w-6xl mx-auto">
+        <PageHeader title="Parent dashboard" />
 
         {children.length === 0 ? (
-          <div className="card p-6 mt-6">
-            <p className="font-medium">No linked child account yet.</p>
-            <p className="text-sm text-ink/60 mt-1">
-              An admin needs to confirm the link between your account and your
-              child's student account. This usually happens automatically if
-              your child's phone number matched what you entered at signup.
-            </p>
+          <div className="card p-8">
+            <EmptyState
+              icon="👨‍👩‍👧"
+              title="No linked child account yet"
+              subtitle="An admin needs to confirm the link between your account and your child's student account. This usually happens automatically if your child's phone number matched what you entered at signup."
+            />
           </div>
         ) : (
           <>
             {children.length > 1 && (
-              <div className="flex gap-2 mt-6">
+              <div className="flex gap-2 mb-6">
                 {children.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setSelectedChild(c)}
-                    className={`text-sm px-4 py-2 rounded-lg border ${selectedChild?.id === c.id ? "bg-clay text-paper border-clay" : "border-[#CBDCF0]"}`}
+                    className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-all ${
+                      selectedChild?.id === c.id ? "bg-clay text-white border-clay shadow-glow" : "border-line hover:border-clay/40"
+                    }`}
                   >
                     {c.full_name}
                   </button>
@@ -101,36 +106,27 @@ export default function ParentDashboard() {
               </div>
             )}
 
-            <p className="text-ink/60 mt-6 mb-2">Showing data for <span className="font-medium text-ink">{selectedChild?.full_name}</span> — Class {selectedChild?.class_level}</p>
+            <p className="text-ink/60 mb-6">Showing data for <span className="font-semibold text-ink">{selectedChild?.full_name}</span> — Class {selectedChild?.class_level}</p>
 
-            <div className="grid md:grid-cols-4 gap-4 mt-4">
-              <div className="card p-5">
-                <p className="label-eyebrow">Attendance</p>
-                <p className="text-2xl font-display font-semibold mt-1">{attendancePct !== null ? `${attendancePct}%` : "—"}</p>
-              </div>
-              <div className="card p-5">
-                <p className="label-eyebrow">Avg. test score</p>
-                <p className="text-2xl font-display font-semibold mt-1">{avgScorePct !== null ? `${avgScorePct}%` : "—"}</p>
-              </div>
+            <div className="grid md:grid-cols-4 gap-4 mb-6">
+              <StatCard label="Attendance" value={attendancePct !== null ? `${attendancePct}%` : "—"} icon="📅" accent="clay" />
+              <StatCard label="Avg. test score" value={avgScorePct !== null ? `${avgScorePct}%` : "—"} icon="🎯" accent="leaf" />
               <div className="card p-5">
                 <p className="label-eyebrow">Lectures watched</p>
-                <p className="text-2xl font-display font-semibold mt-1">{videoViewCount}</p>
+                <p className="font-display text-2xl md:text-3xl font-extrabold text-ink mt-1">{videoViewCount}</p>
                 <p className="text-xs text-ink/50 mt-1">Exact time spent isn't tracked yet</p>
               </div>
-              <div className="card p-5">
-                <p className="label-eyebrow">Homework pending</p>
-                <p className="text-2xl font-display font-semibold mt-1">{submissions.filter((s) => s.status === "missing").length}</p>
-              </div>
+              <StatCard label="Homework pending" value={submissions.filter((s) => s.status === "missing").length} icon="📝" accent="spark" />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
               <div className="card p-5">
                 <p className="label-eyebrow mb-3">Test scores &amp; rankings</p>
                 {attempts.length === 0 && <p className="text-sm text-ink/50">No tests taken yet.</p>}
                 {attempts.map((a) => (
-                  <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
+                  <div key={a.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                     <span>{a.tests?.title || "Test"} ({a.tests?.subject})</span>
-                    <span>{a.score}/{a.total}</span>
+                    <span className="font-semibold">{a.score}/{a.total}</span>
                   </div>
                 ))}
               </div>
@@ -138,9 +134,9 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Homework status</p>
                 {submissions.length === 0 && <p className="text-sm text-ink/50">No assignments yet.</p>}
                 {submissions.map((s) => (
-                  <div key={s.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
+                  <div key={s.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                     <span>{s.assignments?.title}</span>
-                    <span className="capitalize">{s.status}</span>
+                    <span className="capitalize font-semibold">{s.status}</span>
                   </div>
                 ))}
               </div>
@@ -148,9 +144,9 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Fee / payment details</p>
                 {fees.length === 0 && <p className="text-sm text-ink/50">No fee records yet.</p>}
                 {fees.map((f) => (
-                  <div key={f.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
+                  <div key={f.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                     <span>₹{f.amount} {f.due_date ? `— due ${f.due_date}` : ""}</span>
-                    <span className="capitalize">{f.status}</span>
+                    <span className="capitalize font-semibold">{f.status}</span>
                   </div>
                 ))}
               </div>
@@ -158,12 +154,12 @@ export default function ParentDashboard() {
                 <p className="label-eyebrow mb-3">Teacher remarks</p>
                 {remarks.length === 0 && <p className="text-sm text-ink/50">No remarks yet.</p>}
                 {remarks.map((r) => (
-                  <p key={r.id} className="text-sm py-2 border-b border-[#DCE7F7] last:border-0">{r.remark}</p>
+                  <p key={r.id} className="text-sm py-2 border-b border-line last:border-0">{r.remark}</p>
                 ))}
               </div>
             </div>
 
-            <div className="card p-5 mt-6">
+            <div className="card p-5">
               <p className="label-eyebrow mb-3">Parent-teacher meeting schedule</p>
               {ptm.length === 0 && <p className="text-sm text-ink/50">No meetings scheduled.</p>}
               {ptm.map((p) => (

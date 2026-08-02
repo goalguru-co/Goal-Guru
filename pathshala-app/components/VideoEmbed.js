@@ -14,7 +14,7 @@ export default function VideoEmbed({ youtubeId, title, studentId, videoId }) {
   }, [studentId, videoId]);
 
   return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+    <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-glass">
       <iframe
         className="w-full h-full"
         src={`https://www.youtube.com/embed/${youtubeId}?modestbranding=1&rel=0`}

@@ -5,6 +5,10 @@ import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
 import VideoEmbed from "@/components/VideoEmbed";
 import TestPlayer from "@/components/TestPlayer";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
+import EmptyState from "@/components/EmptyState";
+import PageLoading from "@/components/PageLoading";
 import { useRouter } from "next/navigation";
 
 const QUICK_ACTIONS = [
@@ -96,7 +100,7 @@ export default function DashboardPage() {
     loadAll();
   }
 
-  if (loading) return <p className="p-10 text-center text-ink/60">Loading...</p>;
+  if (loading) return <PageLoading />;
 
   const hasAccess = !!subscription;
   const upcomingLive = liveClasses.filter((l) => new Date(l.scheduled_at) > new Date()).slice(0, 3);
@@ -125,27 +129,31 @@ export default function DashboardPage() {
   return (
     <>
       <Navbar session={session} role="student" />
-      <main className="px-6 md:px-10 py-8 max-w-5xl mx-auto">
-        <p className="label-eyebrow mb-1">Class {profile?.class_level}</p>
-        <h1 className="font-display text-3xl font-semibold text-ink">👋 Welcome back, {profile?.full_name?.split(" ")[0]}</h1>
+      <main className="px-6 md:px-10 py-8 max-w-6xl mx-auto">
+        <PageHeader
+          eyebrow={`Class ${profile?.class_level}`}
+          title={<>👋 Welcome back, {profile?.full_name?.split(" ")[0]}</>}
+        />
 
         {!hasAccess && (
-          <div className="card p-5 mt-5 border-clay/40">
-            <p className="font-medium text-ink">You don't have an active subscription.</p>
-            <p className="text-sm text-ink/60 mt-1 mb-3">Subscribe to unlock videos, live classes and study material.</p>
-            <a href="/dashboard/subscribe" className="btn-primary inline-block">Subscribe now</a>
+          <div className="card-gradient-border p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-ink">You don't have an active subscription.</p>
+              <p className="text-sm text-ink/60 mt-1">Subscribe to unlock videos, live classes and study material.</p>
+            </div>
+            <a href="/dashboard/subscribe" className="btn-primary shrink-0">Subscribe now</a>
           </div>
         )}
 
         {/* Quick actions */}
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-3 mt-6">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-3 mb-8">
           {QUICK_ACTIONS.map((qa) => (
             <button
               key={qa.key}
               onClick={() => setTab(qa.key)}
               style={tab === qa.key ? { background: `linear-gradient(135deg, ${qa.color}, #06B6D4)`, borderColor: qa.color } : {}}
-              className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium transition-all ${
-                tab === qa.key ? "text-white shadow-lg scale-[1.03]" : "bg-white border-[#DCE7F7] text-ink/70 hover:border-clay/50"
+              className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium transition-all duration-300 ${
+                tab === qa.key ? "text-white shadow-glow scale-[1.03]" : "bg-white border-line text-ink/70 hover:border-clay/50 hover:-translate-y-0.5"
               }`}
             >
               <span
@@ -160,24 +168,17 @@ export default function DashboardPage() {
         </div>
 
         {tab === "overview" && (
-          <div className="mt-8 space-y-6">
+          <div className="space-y-6">
             <div className="grid md:grid-cols-3 gap-4">
-              <div className="card p-5">
-                <p className="label-eyebrow">Points</p>
-                <p className="text-2xl font-display font-semibold mt-1">{profile?.points || 0}</p>
-                <p className="text-xs text-ink/50 mt-1">Badge: {badgeFor(profile?.points || 0)} 🏆</p>
-              </div>
-              <div className="card p-5">
-                <p className="label-eyebrow">Streak</p>
-                <p className="text-2xl font-display font-semibold mt-1">{profile?.streak_count || 0} tests</p>
-                <p className="text-xs text-ink/50 mt-1">Keep completing tests to grow it</p>
-              </div>
+              <StatCard label="Points" value={profile?.points || 0} icon="🏆" accent="saffron" />
+              <StatCard label="Streak" value={`${profile?.streak_count || 0} tests`} icon="🔥" accent="spark" />
               <div className="card p-5">
                 <p className="label-eyebrow">Today's plan</p>
-                <p className="text-sm mt-1">{continueVideo ? continueVideo.title : "No lectures yet"}</p>
+                <p className="text-sm mt-2 font-medium">{continueVideo ? continueVideo.title : "No lectures yet"}</p>
                 <p className="text-xs text-ink/50 mt-1">{upcomingLive[0] ? `Live: ${upcomingLive[0].title}` : "No live class today"}</p>
               </div>
             </div>
+            <p className="text-xs text-ink/40 -mt-4">Badge: {badgeFor(profile?.points || 0)} 🏆</p>
 
             {continueVideo && (
               <div className="card p-5">
@@ -208,8 +209,8 @@ export default function DashboardPage() {
         )}
 
         {tab === "learn" && (
-          <div className="grid md:grid-cols-2 gap-6 mt-8">
-            {videos.length === 0 && <p className="text-ink/60">No lectures uploaded yet.</p>}
+          <div className="grid md:grid-cols-2 gap-6">
+            {videos.length === 0 && <EmptyState icon="🎥" title="No lectures uploaded yet" subtitle="Check back soon — your teacher hasn't added any videos for this class yet." />}
             {videos.map((v) => (
               <div key={v.id} className="card p-4">
                 <p className="label-eyebrow mb-2">{v.subject}</p>
@@ -225,17 +226,17 @@ export default function DashboardPage() {
         )}
 
         {(tab === "practice" || tab === "tests") && (
-          <div className="mt-8">
+          <div>
             {activeTest ? (
               <div>
                 <button onClick={() => setActiveTest(null)} className="btn-secondary text-sm mb-4">← Back to list</button>
-                <h2 className="font-display text-xl font-semibold mb-4">{activeTest.title}</h2>
+                <h2 className="font-display text-xl font-bold mb-4">{activeTest.title}</h2>
                 <TestPlayer test={activeTest} studentId={session.user.id} onDone={loadAll} />
               </div>
             ) : (
               <div className="space-y-3">
                 {(tab === "practice" ? practiceTests : scheduledTests).length === 0 && (
-                  <p className="text-ink/60">No {tab === "practice" ? "practice sets" : "scheduled tests"} yet.</p>
+                  <EmptyState icon="🎯" title={`No ${tab === "practice" ? "practice sets" : "scheduled tests"} yet`} />
                 )}
                 {(tab === "practice" ? practiceTests : scheduledTests).map((t) => {
                   const attempt = attemptedTests[t.id];
@@ -247,7 +248,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-ink/50">{t.questions?.length || 0} questions {t.scheduled_at ? `· ${new Date(t.scheduled_at).toLocaleString()}` : ""}</p>
                       </div>
                       {attempt ? (
-                        <span className="text-sm font-medium text-leaf">Completed — {attempt.score}/{attempt.total}</span>
+                        <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Completed — {attempt.score}/{attempt.total}</span>
                       ) : (
                         <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
                           {hasAccess ? "Start" : "Locked"}
@@ -262,8 +263,8 @@ export default function DashboardPage() {
         )}
 
         {tab === "live" && (
-          <div className="mt-8 space-y-4">
-            {liveClasses.length === 0 && <p className="text-ink/60">No live classes scheduled.</p>}
+          <div className="space-y-4">
+            {liveClasses.length === 0 && <EmptyState icon="📅" title="No live classes scheduled" />}
             {liveClasses.map((l) => (
               <div key={l.id} className="card p-4">
                 <p className="label-eyebrow mb-1">{l.subject}</p>
@@ -280,15 +281,15 @@ export default function DashboardPage() {
         )}
 
         {tab === "results" && (
-          <div className="mt-8 space-y-6">
+          <div className="space-y-6">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="card p-5">
                 <p className="label-eyebrow mb-1">Strongest subject</p>
-                <p className="text-lg font-medium">{strongest ? `${strongest.subject} — ${strongest.pct}%` : "Take a test to see this"}</p>
+                <p className="text-lg font-semibold">{strongest ? `${strongest.subject} — ${strongest.pct}%` : "Take a test to see this"}</p>
               </div>
               <div className="card p-5">
                 <p className="label-eyebrow mb-1">Needs attention</p>
-                <p className="text-lg font-medium">{weakest ? `${weakest.subject} — ${weakest.pct}%` : "Take a test to see this"}</p>
+                <p className="text-lg font-semibold">{weakest ? `${weakest.subject} — ${weakest.pct}%` : "Take a test to see this"}</p>
               </div>
             </div>
             <div className="card p-5">
@@ -296,9 +297,9 @@ export default function DashboardPage() {
               {subjectList.length === 0 && <p className="text-sm text-ink/50">No test attempts yet.</p>}
               {subjectList.map((s) => (
                 <div key={s.subject} className="mb-3">
-                  <div className="flex justify-between text-sm mb-1"><span>{s.subject}</span><span>{s.pct}%</span></div>
+                  <div className="flex justify-between text-sm mb-1"><span>{s.subject}</span><span className="font-semibold">{s.pct}%</span></div>
                   <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-leaf" style={{ width: `${s.pct}%` }} />
+                    <div className="h-full bg-gradient-to-r from-clay to-leaf rounded-full transition-all duration-700" style={{ width: `${s.pct}%` }} />
                   </div>
                 </div>
               ))}
@@ -307,9 +308,9 @@ export default function DashboardPage() {
               <p className="label-eyebrow mb-3">Test history</p>
               {attempts.length === 0 && <p className="text-sm text-ink/50">No attempts yet.</p>}
               {attempts.map((a) => (
-                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-[#DCE7F7] last:border-0">
+                <div key={a.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                   <span>{a.tests?.title || "Test"}</span>
-                  <span>{a.score}/{a.total}</span>
+                  <span className="font-semibold">{a.score}/{a.total}</span>
                 </div>
               ))}
             </div>
@@ -317,8 +318,8 @@ export default function DashboardPage() {
         )}
 
         {tab === "notes" && (
-          <div className="mt-8 space-y-3">
-            {material.length === 0 && <p className="text-ink/60">No study material uploaded yet.</p>}
+          <div className="space-y-3">
+            {material.length === 0 && <EmptyState icon="📄" title="No study material uploaded yet" />}
             {material.map((m) => (
               <div key={m.id} className="card p-4 flex items-center justify-between">
                 <div>
@@ -336,8 +337,8 @@ export default function DashboardPage() {
         )}
 
         {tab === "doubts" && (
-          <div className="mt-8 grid md:grid-cols-2 gap-6">
-            <form onSubmit={submitDoubt} className="card p-5 space-y-3">
+          <div className="grid md:grid-cols-2 gap-6">
+            <form onSubmit={submitDoubt} className="card p-5 space-y-3 h-fit">
               <p className="label-eyebrow">Ask a doubt</p>
               <input
                 required
@@ -357,7 +358,7 @@ export default function DashboardPage() {
               <button className="btn-primary w-full">Submit</button>
             </form>
             <div className="space-y-3">
-              {doubts.length === 0 && <p className="text-ink/60 text-sm">No doubts asked yet.</p>}
+              {doubts.length === 0 && <EmptyState icon="❓" title="No doubts asked yet" />}
               {doubts.map((d) => (
                 <div key={d.id} className="card p-4">
                   <p className="label-eyebrow mb-1">{d.subject}</p>
@@ -374,15 +375,15 @@ export default function DashboardPage() {
         )}
 
         {tab === "profile" && (
-          <div className="mt-8 card p-6 max-w-md">
+          <div className="card p-6 max-w-md">
             <p className="label-eyebrow mb-1">Name</p>
-            <p className="mb-4">{profile?.full_name}</p>
+            <p className="mb-4 font-medium">{profile?.full_name}</p>
             <p className="label-eyebrow mb-1">Class</p>
-            <p className="mb-4">Class {profile?.class_level}</p>
+            <p className="mb-4 font-medium">Class {profile?.class_level}</p>
             <p className="label-eyebrow mb-1">Phone</p>
-            <p className="mb-4">{profile?.phone}</p>
+            <p className="mb-4 font-medium">{profile?.phone}</p>
             <p className="label-eyebrow mb-1">Points &amp; badge</p>
-            <p>{profile?.points || 0} pts — {badgeFor(profile?.points || 0)}</p>
+            <p className="font-medium">{profile?.points || 0} pts — {badgeFor(profile?.points || 0)}</p>
           </div>
         )}
       </main>

@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import PageLoading from "@/components/PageLoading";
+import StatusPill from "@/components/StatusPill";
 import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 
@@ -11,6 +15,7 @@ const ROLE_HOME = { admin: "/admin", teacher: "/teacher", parent: "/parent", stu
 export default function ManageUsers() {
   const router = useRouter();
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [parents, setParents] = useState([]);
   const [linkPhoneInputs, setLinkPhoneInputs] = useState({});
@@ -58,6 +63,7 @@ export default function ManageUsers() {
     (activeSubs || []).forEach((s) => { subMap[s.student_id] = s.ends_at; });
 
     setStudents((studentsData || []).map((s) => ({ ...s, subEndsAt: subMap[s.id] || null })));
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -183,22 +189,24 @@ export default function ManageUsers() {
     a.click();
   }
 
+  if (loading) return <PageLoading />;
+
   return (
     <>
       <Navbar session={session} role="admin" />
       <main className="px-6 md:px-10 py-10 max-w-4xl mx-auto">
-        <h1 className="font-display text-3xl font-semibold text-ink">Manage users</h1>
+        <PageHeader title="Manage users" />
 
-        <section className="mt-10">
-          <h2 className="font-display text-xl font-semibold mb-4">
-            Pending approvals ({pendingUsers.length})
+        <section className="mb-12">
+          <h2 className="font-display text-xl font-bold mb-4">
+            Pending approvals <span className="text-ink/40">({pendingUsers.length})</span>
           </h2>
           <div className="space-y-3">
-            {pendingUsers.length === 0 && <p className="text-ink/60 text-sm">No pending signups.</p>}
+            {pendingUsers.length === 0 && <EmptyState icon="✅" title="No pending signups" />}
             {pendingUsers.map((u) => (
               <div key={u.id} className="card p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{u.full_name} <span className="text-xs text-ink/50 capitalize">({u.role})</span></p>
+                  <p className="font-semibold">{u.full_name} <span className="text-xs text-ink/50 font-normal capitalize">({u.role})</span></p>
                   <p className="text-sm text-ink/60">
                     {u.role === "student" && `Class ${u.class_level} · `}
                     {u.role === "teacher" && `${u.subject} · `}
@@ -214,26 +222,26 @@ export default function ManageUsers() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-display text-xl font-semibold mb-2">Parent-child links</h2>
+        <section className="mb-12">
+          <h2 className="font-display text-xl font-bold mb-2">Parent-child links</h2>
           <p className="text-sm text-ink/60 mb-4">
             Each parent needs to be linked to their child's student account by phone number.
             This normally happens automatically at signup, but you can link or relink manually here.
           </p>
           <div className="space-y-3">
-            {parents.length === 0 && <p className="text-ink/60 text-sm">No approved parent accounts yet.</p>}
+            {parents.length === 0 && <EmptyState icon="👨‍👩‍👧" title="No approved parent accounts yet" />}
             {parents.map((p) => (
-              <div key={p.id} className="card p-4 flex items-center justify-between gap-4">
+              <div key={p.id} className="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium">{p.full_name} <span className="text-xs text-ink/50">— {p.phone}</span></p>
+                  <p className="font-semibold">{p.full_name} <span className="text-xs text-ink/50 font-normal">— {p.phone}</span></p>
                   <p className="text-xs mt-1">
                     {p.link?.student_id ? (
-                      <span className="text-leaf font-medium">Linked to {p.link.profiles?.full_name || "a student"}</span>
+                      <span className="text-leaf font-semibold">Linked to {p.link.profiles?.full_name || "a student"}</span>
                     ) : (
                       <span className="text-ink/50">Not linked to a student yet</span>
                     )}
                   </p>
-                  {linkStatus[p.id] && <p className="text-xs text-clay mt-1">{linkStatus[p.id]}</p>}
+                  {linkStatus[p.id] && <div className="mt-1"><StatusPill tone={linkStatus[p.id].startsWith("Error") || linkStatus[p.id].startsWith("No approved") ? "error" : "info"}>{linkStatus[p.id]}</StatusPill></div>}
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -254,26 +262,26 @@ export default function ManageUsers() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-display text-xl font-semibold mb-2">All students</h2>
+        <section className="mb-12">
+          <h2 className="font-display text-xl font-bold mb-2">All students</h2>
           <p className="text-sm text-ink/60 mb-4">
             Grant free access to unlock videos, tests and live classes for a student without
             a Razorpay payment — useful for testing, trials, or offline-paid students.
           </p>
           <div className="space-y-3">
-            {students.length === 0 && <p className="text-ink/60 text-sm">No approved students yet.</p>}
+            {students.length === 0 && <EmptyState icon="🎓" title="No approved students yet" />}
             {students.map((s) => (
               <div key={s.id} className="card p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{s.full_name} <span className="text-xs text-ink/50">— Class {s.class_level} · {s.phone}</span></p>
+                  <p className="font-semibold">{s.full_name} <span className="text-xs text-ink/50 font-normal">— Class {s.class_level} · {s.phone}</span></p>
                   <p className="text-xs mt-1">
                     {s.subEndsAt ? (
-                      <span className="text-leaf font-medium">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>
+                      <span className="text-leaf font-semibold">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>
                     ) : (
                       <span className="text-ink/50">No active subscription</span>
                     )}
                   </p>
-                  {subStatus[s.id] && <p className="text-xs text-clay mt-1">{subStatus[s.id]}</p>}
+                  {subStatus[s.id] && <div className="mt-1"><StatusPill tone={subStatus[s.id].startsWith("Error") ? "error" : "info"}>{subStatus[s.id]}</StatusPill></div>}
                 </div>
                 {s.subEndsAt ? (
                   <button onClick={() => revokeSubscription(s)} className="btn-secondary text-sm py-1.5">Revoke access</button>
@@ -285,17 +293,17 @@ export default function ManageUsers() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-display text-xl font-semibold mb-2">Bulk upload school students (CSV)</h2>
+        <section>
+          <h2 className="font-display text-xl font-bold mb-2">Bulk upload school students (CSV)</h2>
           <p className="text-sm text-ink/60 mb-4">
-            Required CSV columns: <code className="bg-ink/5 px-1 rounded">full_name, phone, class_level, school_name</code>.
+            Required CSV columns: <code className="bg-ink/5 px-1.5 py-0.5 rounded font-mono text-xs">full_name, phone, class_level, school_name</code>.
             Login IDs/passwords are auto-generated — after upload you can download a
             credentials file to share with the school.
           </p>
           <div className="card p-6">
-            <input type="file" accept=".csv" onChange={(e) => setCsvFile(e.target.files[0])} className="mb-4" />
+            <input type="file" accept=".csv" onChange={(e) => setCsvFile(e.target.files[0])} className="mb-4 text-sm" />
             <button onClick={handleCsvUpload} className="btn-primary">Upload &amp; create accounts</button>
-            {csvStatus && <p className="text-sm text-ink/60 mt-3">{csvStatus}</p>}
+            {csvStatus && <div className="mt-3"><StatusPill tone={csvStatus.startsWith("Error") ? "error" : "info"}>{csvStatus}</StatusPill></div>}
             {generatedCreds.length > 0 && (
               <button onClick={downloadCreds} className="btn-secondary mt-4 block">Download login credentials CSV</button>
             )}

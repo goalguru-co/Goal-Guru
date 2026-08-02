@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
+import StatusPill from "@/components/StatusPill";
+import PageLoading from "@/components/PageLoading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +19,7 @@ export default function AdminHome() {
   const [announceForm, setAnnounceForm] = useState({ classLevel: "", title: "", message: "" });
   const [status, setStatus] = useState("");
   const [upcomingLive, setUpcomingLive] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   async function loadStats(userId) {
     const today = new Date().toISOString().slice(0, 10);
@@ -49,6 +54,7 @@ export default function AdminHome() {
       admissions: admissions || 0, contentCount: (videoCount || 0) + (materialCount || 0) + (assignmentCount || 0) + (testCount || 0),
     });
     setUpcomingLive(liveData || []);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -76,35 +82,39 @@ export default function AdminHome() {
     if (!error) setAnnounceForm({ classLevel: "", title: "", message: "" });
   }
 
+  if (loading) return <PageLoading />;
+
   return (
     <>
       <Navbar session={session} role="admin" />
-      <main className="px-6 md:px-10 py-10 max-w-5xl mx-auto">
-        <h1 className="font-display text-3xl font-semibold text-ink">Admin dashboard</h1>
+      <main className="px-6 md:px-10 py-10 max-w-6xl mx-auto">
+        <PageHeader eyebrow="Overview" title="Admin dashboard" />
 
-        <div className="grid md:grid-cols-4 gap-4 mt-8">
-          <Stat label="Total students" value={stats.totalStudents} />
-          <Stat label="Active today" value={stats.activeToday} />
-          <Stat label="Revenue collected" value={`₹${stats.revenue || 0}`} />
-          <Stat label="New admissions (this month)" value={stats.admissions} />
-          <Stat label="Pending approvals" value={stats.pending} />
-          <Stat label="Active subscriptions" value={stats.activeSubs} />
-          <Stat label="Teachers / Parents" value={`${stats.totalTeachers || 0} / ${stats.totalParents || 0}`} />
-          <Stat label="Content items uploaded" value={stats.contentCount} />
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <StatCard label="Total students" value={stats.totalStudents} icon="🎓" accent="clay" />
+          <StatCard label="Active today" value={stats.activeToday} icon="⚡" accent="leaf" />
+          <StatCard label="Revenue collected" value={`₹${stats.revenue || 0}`} icon="💰" accent="saffron" />
+          <StatCard label="New admissions (this month)" value={stats.admissions} icon="📈" accent="spark" />
+          <StatCard label="Pending approvals" value={stats.pending} icon="⏳" accent="clay" />
+          <StatCard label="Active subscriptions" value={stats.activeSubs} icon="✅" accent="leaf" />
+          <StatCard label="Teachers / Parents" value={`${stats.totalTeachers || 0} / ${stats.totalParents || 0}`} icon="👥" accent="saffron" />
+          <StatCard label="Content items uploaded" value={stats.contentCount} icon="📚" accent="spark" />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
-          <Link href="/admin/students" className="card p-6 hover:border-clay">
-            <h3 className="font-medium mb-1">Manage users</h3>
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <Link href="/admin/students" className="card p-6">
+            <div className="w-11 h-11 rounded-xl bg-clay/10 flex items-center justify-center text-xl mb-3">👥</div>
+            <h3 className="font-display font-bold text-ink mb-1">Manage users</h3>
             <p className="text-sm text-ink/60">Approve signups, bulk upload student lists, link parents</p>
           </Link>
-          <Link href="/admin/content" className="card p-6 hover:border-clay">
-            <h3 className="font-medium mb-1">Manage content</h3>
+          <Link href="/admin/content" className="card p-6">
+            <div className="w-11 h-11 rounded-xl bg-leaf/10 flex items-center justify-center text-xl mb-3">🎬</div>
+            <h3 className="font-display font-bold text-ink mb-1">Manage content</h3>
             <p className="text-sm text-ink/60">Add video lectures, live classes and study material</p>
           </Link>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
+        <div className="grid md:grid-cols-2 gap-4">
           <div className="card p-5">
             <p className="label-eyebrow mb-3">Live class schedule</p>
             {upcomingLive.length === 0 && <p className="text-sm text-ink/50">Nothing scheduled.</p>}
@@ -122,19 +132,10 @@ export default function AdminHome() {
             <input required placeholder="Title" className="input-field" value={announceForm.title} onChange={(e) => setAnnounceForm({ ...announceForm, title: e.target.value })} />
             <textarea required placeholder="Message" className="input-field" rows={2} value={announceForm.message} onChange={(e) => setAnnounceForm({ ...announceForm, message: e.target.value })} />
             <button className="btn-primary w-full">Post</button>
-            {status && <p className="text-sm text-ink/60">{status}</p>}
+            <StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill>
           </form>
         </div>
       </main>
     </>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="card p-5">
-      <p className="label-eyebrow">{label}</p>
-      <p className="text-2xl font-display font-semibold mt-2">{value ?? "—"}</p>
-    </div>
   );
 }

@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
+import Tabs from "@/components/Tabs";
+import EmptyState from "@/components/EmptyState";
+import PageLoading from "@/components/PageLoading";
+import StatusPill from "@/components/StatusPill";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
+const TABS = ["overview", "attendance", "assignments", "tests", "analytics", "doubts"];
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -14,6 +20,7 @@ export default function TeacherDashboard() {
   const [tab, setTab] = useState("overview");
   const [todayLive, setTodayLive] = useState([]);
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
 
   // Attendance
   const [attClass, setAttClass] = useState("6");
@@ -61,6 +68,7 @@ export default function TeacherDashboard() {
         bySubject[key].count += 1;
       });
       setAnalytics(Object.entries(bySubject).map(([k, v]) => ({ key: k, pct: v.total ? Math.round((v.correct / v.total) * 100) : 0, attempts: v.count })));
+      setLoading(false);
     }
     init();
   }, [router]);
@@ -146,28 +154,24 @@ export default function TeacherDashboard() {
     setOpenDoubts(openDoubts.filter((d) => d.id !== id));
   }
 
-  const TABS = ["overview", "attendance", "assignments", "tests", "analytics", "doubts"];
+  if (loading) return <PageLoading />;
 
   return (
     <>
       <Navbar session={session} role="teacher" />
       <main className="px-6 md:px-10 py-8 max-w-4xl mx-auto">
-        <h1 className="font-display text-3xl font-semibold text-ink">Teacher dashboard</h1>
-        <p className="text-ink/60 text-sm mt-1">{profile?.full_name} — {profile?.subject}</p>
+        <PageHeader eyebrow={profile?.subject} title="Teacher dashboard" subtitle={profile?.full_name} />
 
-        <div className="flex gap-2 mt-6 border-b border-[#DCE7F7] overflow-x-auto">
-          {TABS.map((t) => (
-            <button key={t} onClick={() => { setTab(t); if (t === "attendance") loadStudentsForAttendance(); }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize whitespace-nowrap ${tab === t ? "border-clay text-clay" : "border-transparent text-ink/60"}`}>
-              {t}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          tabs={TABS}
+          active={tab}
+          onChange={(t) => { setTab(t); if (t === "attendance") loadStudentsForAttendance(); }}
+        />
 
         {tab === "overview" && (
-          <div className="mt-6 card p-5">
+          <div className="card p-5">
             <p className="label-eyebrow mb-3">Today's timetable</p>
-            {todayLive.length === 0 && <p className="text-sm text-ink/50">No live classes scheduled today.</p>}
+            {todayLive.length === 0 && <EmptyState icon="📅" title="No live classes scheduled today" />}
             {todayLive.map((l) => (
               <p key={l.id} className="text-sm py-1">{new Date(l.scheduled_at).toLocaleTimeString()} — {l.title} (Class {l.class_level})</p>
             ))}
@@ -175,8 +179,8 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "attendance" && (
-          <div className="mt-6">
-            <div className="flex gap-3 mb-4">
+          <div>
+            <div className="flex flex-wrap gap-3 mb-4">
               <select className="input-field w-40" value={attClass} onChange={(e) => setAttClass(e.target.value)}>
                 {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
               </select>
@@ -186,8 +190,8 @@ export default function TeacherDashboard() {
             {attStudents.length > 0 && (
               <div className="card p-4 space-y-2">
                 {attStudents.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between text-sm py-1">
-                    <span>{s.full_name}</span>
+                  <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
+                    <span className="font-medium">{s.full_name}</span>
                     <select className="input-field w-32 py-1" value={attMarks[s.id]} onChange={(e) => setAttMarks({ ...attMarks, [s.id]: e.target.value })}>
                       <option value="present">Present</option>
                       <option value="absent">Absent</option>
@@ -202,7 +206,7 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "assignments" && (
-          <form onSubmit={submitAssignment} className="card p-6 mt-6 space-y-4 max-w-lg">
+          <form onSubmit={submitAssignment} className="card p-6 space-y-4 max-w-lg">
             <select className="input-field" value={assignForm.classLevel} onChange={(e) => setAssignForm({ ...assignForm, classLevel: e.target.value })}>
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
             </select>
@@ -215,14 +219,14 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "tests" && (
-          <form onSubmit={submitTest} className="card p-6 mt-6 space-y-4 max-w-2xl">
+          <form onSubmit={submitTest} className="card p-6 space-y-4 max-w-2xl">
             <select className="input-field" value={testForm.classLevel} onChange={(e) => setTestForm({ ...testForm, classLevel: e.target.value })}>
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
             </select>
             <input required placeholder="Subject" className="input-field" value={testForm.subject} onChange={(e) => setTestForm({ ...testForm, subject: e.target.value })} />
             <input required placeholder="Test title" className="input-field" value={testForm.title} onChange={(e) => setTestForm({ ...testForm, title: e.target.value })} />
             <div>
-              <label className="text-sm font-medium">Scheduled date &amp; time (leave empty for always-available practice set)</label>
+              <label className="text-sm font-semibold text-ink/70">Scheduled date &amp; time (leave empty for always-available practice set)</label>
               <div className="flex gap-3 mt-1">
                 <input type="date" className="input-field" value={testForm.scheduledDate} onChange={(e) => setTestForm({ ...testForm, scheduledDate: e.target.value })} />
                 <input type="time" className="input-field" value={testForm.scheduledTime} onChange={(e) => setTestForm({ ...testForm, scheduledTime: e.target.value })} disabled={!testForm.scheduledDate} />
@@ -231,7 +235,7 @@ export default function TeacherDashboard() {
 
             <p className="label-eyebrow">Questions</p>
             {questions.map((q, i) => (
-              <div key={i} className="border border-[#DCE7F7] rounded-lg p-3 space-y-2">
+              <div key={i} className="border border-line rounded-xl p-4 space-y-2 bg-ink/[0.015]">
                 <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
                 <p className="text-xs text-ink/50">Select the radio button next to the correct option:</p>
                 {q.options.map((opt, oi) => (
@@ -248,14 +252,14 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "analytics" && (
-          <div className="mt-6 card p-5">
+          <div className="card p-5">
             <p className="label-eyebrow mb-3">Student performance by subject</p>
-            {analytics.length === 0 && <p className="text-sm text-ink/50">No test attempts recorded yet.</p>}
+            {analytics.length === 0 && <EmptyState icon="📊" title="No test attempts recorded yet" />}
             {analytics.map((a) => (
               <div key={a.key} className="mb-3">
-                <div className="flex justify-between text-sm mb-1"><span>{a.key}</span><span>{a.pct}% avg &middot; {a.attempts} attempts</span></div>
+                <div className="flex justify-between text-sm mb-1"><span>{a.key}</span><span className="font-semibold">{a.pct}% avg &middot; {a.attempts} attempts</span></div>
                 <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-leaf" style={{ width: `${a.pct}%` }} />
+                  <div className="h-full bg-gradient-to-r from-clay to-leaf rounded-full transition-all duration-700" style={{ width: `${a.pct}%` }} />
                 </div>
               </div>
             ))}
@@ -263,9 +267,9 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "doubts" && (
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             <p className="text-sm text-ink/60 mb-2">Doubts and messages from students appear here.</p>
-            {openDoubts.length === 0 && <p className="text-sm text-ink/50">No open doubts.</p>}
+            {openDoubts.length === 0 && <EmptyState icon="❓" title="No open doubts" />}
             {openDoubts.map((d) => (
               <div key={d.id} className="card p-4">
                 <p className="text-xs text-ink/50 mb-1">{d.profiles?.full_name} — Class {d.profiles?.class_level} — {d.subject}</p>
@@ -277,7 +281,7 @@ export default function TeacherDashboard() {
           </div>
         )}
 
-        {status && <p className="text-sm text-ink/60 mt-4">{status}</p>}
+        {status && <div className="mt-4"><StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill></div>}
       </main>
     </>
   );

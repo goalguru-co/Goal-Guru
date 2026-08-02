@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
+import Tabs from "@/components/Tabs";
+import StatusPill from "@/components/StatusPill";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
 const ROLE_HOME = { admin: "/admin", teacher: "/teacher", parent: "/parent", student: "/dashboard" };
+const CONTENT_TABS = [
+  { key: "video", label: "Video lecture" },
+  { key: "live", label: "Live class" },
+  { key: "material", label: "Study material" },
+];
 
 export default function ManageContent() {
   const router = useRouter();
@@ -84,24 +92,12 @@ export default function ManageContent() {
     <>
       <Navbar session={session} role="admin" />
       <main className="px-6 md:px-10 py-10 max-w-2xl mx-auto">
-        <h1 className="font-display text-3xl font-semibold text-ink">Manage content</h1>
+        <PageHeader title="Manage content" />
 
-        <div className="flex gap-2 mt-8 border-b border-[#DCE7F7]">
-          {["video", "live", "material"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-                tab === t ? "border-clay text-clay" : "border-transparent text-ink/60"
-              }`}
-            >
-              {t === "video" ? "Video lecture" : t === "live" ? "Live class" : "Study material"}
-            </button>
-          ))}
-        </div>
+        <Tabs tabs={CONTENT_TABS} active={tab} onChange={setTab} />
 
         {tab === "video" && (
-          <form onSubmit={submitVideo} className="card p-6 mt-6 space-y-4">
+          <form onSubmit={submitVideo} className="card p-6 space-y-4">
             <Field label="Class">
               <select className="input-field" value={videoForm.classLevel} onChange={(e) => setVideoForm({ ...videoForm, classLevel: e.target.value })}>
                 {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
@@ -121,7 +117,7 @@ export default function ManageContent() {
         )}
 
         {tab === "live" && (
-          <form onSubmit={submitLive} className="card p-6 mt-6 space-y-4">
+          <form onSubmit={submitLive} className="card p-6 space-y-4">
             <Field label="Class">
               <select className="input-field" value={liveForm.classLevel} onChange={(e) => setLiveForm({ ...liveForm, classLevel: e.target.value })}>
                 {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
@@ -147,7 +143,7 @@ export default function ManageContent() {
         )}
 
         {tab === "material" && (
-          <form onSubmit={submitMaterial} className="card p-6 mt-6 space-y-4">
+          <form onSubmit={submitMaterial} className="card p-6 space-y-4">
             <Field label="Class">
               <select className="input-field" value={materialForm.classLevel} onChange={(e) => setMaterialForm({ ...materialForm, classLevel: e.target.value })}>
                 {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
@@ -166,7 +162,7 @@ export default function ManageContent() {
           </form>
         )}
 
-        {status && <p className="text-sm text-ink/60 mt-4">{status}</p>}
+        {status && <div className="mt-4"><StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill></div>}
       </main>
     </>
   );
@@ -175,7 +171,7 @@ export default function ManageContent() {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="text-sm font-medium block mb-1">{label}</label>
+      <label className="text-sm font-semibold text-ink/70 block mb-1">{label}</label>
       {children}
     </div>
   );

@@ -50,12 +50,13 @@ export default function TestPlayer({ test, studentId, onDone }) {
 
   if (submitted) {
     return (
-      <div className="card p-6 text-center">
-        <p className="label-eyebrow mb-2">Result</p>
-        <p className="font-display text-3xl font-semibold text-ink">
+      <div className="card-gradient-border p-8 text-center relative overflow-hidden">
+        <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-leaf/10 blur-2xl" />
+        <p className="label-eyebrow mb-2 relative">Result</p>
+        <p className="font-display text-4xl font-extrabold text-gradient relative">
           {score} / {questions.length}
         </p>
-        <p className="text-sm text-ink/60 mt-2">Nice work — points added to your profile.</p>
+        <p className="text-sm text-ink/60 mt-2 relative">Nice work — points added to your profile.</p>
       </div>
     );
   }
@@ -63,20 +64,32 @@ export default function TestPlayer({ test, studentId, onDone }) {
   return (
     <div className="space-y-5">
       {questions.map((q, i) => (
-        <div key={i} className="card p-4">
-          <p className="font-medium text-ink mb-3">{i + 1}. {q.q}</p>
+        <div key={i} className="card p-5">
+          <p className="font-semibold text-ink mb-3">{i + 1}. {q.q}</p>
           <div className="space-y-2">
-            {q.options.map((opt, oi) => (
-              <label key={oi} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name={`q-${i}`}
-                  checked={answers[i] === oi}
-                  onChange={() => selectAnswer(i, oi)}
-                />
-                {opt}
-              </label>
-            ))}
+            {q.options.map((opt, oi) => {
+              const isSelected = answers[i] === oi;
+              return (
+                <label
+                  key={oi}
+                  className={`flex items-center gap-3 text-sm cursor-pointer px-3 py-2.5 rounded-xl border transition-all ${
+                    isSelected ? "border-clay bg-clay/5" : "border-line hover:border-clay/30"
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "border-clay" : "border-line"}`}>
+                    {isSelected && <span className="w-2 h-2 rounded-full bg-clay" />}
+                  </span>
+                  <input
+                    type="radio"
+                    name={`q-${i}`}
+                    checked={isSelected}
+                    onChange={() => selectAnswer(i, oi)}
+                    className="sr-only"
+                  />
+                  {opt}
+                </label>
+              );
+            })}
           </div>
         </div>
       ))}
