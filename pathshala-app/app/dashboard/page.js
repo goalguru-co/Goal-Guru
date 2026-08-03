@@ -47,7 +47,13 @@ export default function DashboardPage() {
   const [submitLinks, setSubmitLinks] = useState({});
   const [doubts, setDoubts] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const requested = new URLSearchParams(window.location.search).get("tab");
+      if (requested) return requested;
+    }
+    return "overview";
+  });
   const [activeTest, setActiveTest] = useState(null);
   const [doubtForm, setDoubtForm] = useState({ subject: "", question: "" });
   const [loading, setLoading] = useState(true);

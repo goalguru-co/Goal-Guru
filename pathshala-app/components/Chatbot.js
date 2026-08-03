@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getChatbotReply, getExampleQuestions } from "@/lib/chatbotEngine";
 
@@ -10,6 +10,7 @@ const HIDDEN_PATHS = ["/", "/login", "/signup"];
 
 export default function Chatbot() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -21,6 +22,23 @@ export default function Chatbot() {
   const [examples, setExamples] = useState([]);
   const [ready, setReady] = useState(false);
   const scrollRef = useRef(null);
+
+  // Whenever the actual Supabase auth state changes (login, logout, switching
+  // accounts) — invalidate everything cached. Without this, since this component
+  // lives in the root layout and never unmounts, it would keep answering with
+  // whoever was logged in the first time the chat was opened in this tab.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      setReady(false);
+      setSession(null);
+      setProfile(null);
+      setLinkedChild(null);
+      setFaqs([]);
+      setMessages([]);
+      setExamples([]);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Load session/profile/FAQs once, lazily, only when the bubble is first opened —
   // keeps this component from doing any work at all on pages where it's never used.
@@ -86,11 +104,12 @@ export default function Chatbot() {
     setThinking(true);
 
     let reply;
+    let action;
     try {
       if (!session) {
         reply = "Please log in first — then I can look up your account details.";
       } else {
-        reply = await getChatbotReply(trimmed, {
+        const result = await getChatbotReply(trimmed, {
           role: profile?.role,
           session,
           profile,
@@ -98,12 +117,14 @@ export default function Chatbot() {
           faqs,
           supabase,
         });
+        reply = result.text;
+        action = result.action;
       }
     } catch (err) {
       reply = "Something went wrong looking that up — please try again in a moment.";
     }
 
-    setMessages((m) => [...m, { from: "bot", text: reply }]);
+    setMessages((m) => [...m, { from: "bot", text: reply, action }]);
     setThinking(false);
   }
 
@@ -153,12 +174,22 @@ export default function Chatbot() {
                 </div>
               ) : (
                 <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[85%] text-sm px-3 py-2 rounded-2xl ${
-                      m.from === "user" ? "bg-clay text-white rounded-br-sm" : "bg-white border border-line text-ink rounded-bl-sm"
-                    }`}
-                  >
-                    {m.text}
+                  <div className="max-w-[85%]">
+                    <div
+                      className={`text-sm px-3 py-2 rounded-2xl ${
+                        m.from === "user" ? "bg-clay text-white rounded-br-sm" : "bg-white border border-line text-ink rounded-bl-sm"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                    {m.action && (
+                      <button
+                        onClick={() => { router.push(m.action.href); setOpen(false); }}
+                        className="mt-1.5 text-xs font-semibold text-clay bg-clay/10 hover:bg-clay/15 px-3 py-1.5 rounded-full"
+                      >
+                        {m.action.label}
+                      </button>
+                    )}
                   </div>
                 </div>
               )

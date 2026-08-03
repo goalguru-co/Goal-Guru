@@ -266,12 +266,14 @@ export async function getExampleQuestions(ctx) {
   return [...dataQs, ...roleFaqs].slice(0, 5);
 }
 
+const DOUBTS_ACTION = { label: "Ask in Doubts tab →", href: "/dashboard?tab=doubts" };
+
 export async function getChatbotReply(message, ctx) {
   const { role, faqs } = ctx;
   const normalized = normalize(message);
 
   if (GREETINGS.has(normalized)) {
-    return "Hey! Ask me about your account (attendance, scores, assignments...) or how to use a feature — or tap Suggestions below for ideas.";
+    return { text: "Hey! Ask me about your account (attendance, scores, assignments...) or how to use a feature — or tap Suggestions below for ideas." };
   }
 
   const messageWords = normalized.split(" ");
@@ -293,13 +295,19 @@ export async function getChatbotReply(message, ctx) {
   const best = candidates[0];
 
   if (best && best.score >= 1) {
-    return best.answer || (await best.handler());
+    return { text: best.answer || (await best.handler()) };
   }
 
   const hitBoundary = HOMEWORK_BOUNDARY_WORDS.some((w) => normalized.includes(w));
   if (hitBoundary) {
-    return "I can't solve or explain subject questions for you — that's exactly what the Doubts tab is for! Ask your teacher there and they'll help you understand it properly. I can help with things like your attendance, scores, assignments, and how to use the app.";
+    return {
+      text: "I can't solve or explain subject questions for you — that's exactly what the Doubts tab is for! Ask your teacher there and they'll help you understand it properly. I can help with things like your attendance, scores, assignments, and how to use the app.",
+      action: role === "student" ? DOUBTS_ACTION : undefined,
+    };
   }
 
-  return "I'm not sure I understood that. Try asking about your attendance, scores, assignments, or how to use a feature — or tap one of the suggestions below.";
+  return {
+    text: "I'm not sure I understood that. Try asking about your attendance, scores, assignments, or how to use a feature — or tap one of the suggestions below.",
+    action: role === "student" ? DOUBTS_ACTION : undefined,
+  };
 }
