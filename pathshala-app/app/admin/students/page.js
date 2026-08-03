@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
 import StatusPill from "@/components/StatusPill";
+import { titleCase } from "@/lib/format";
 import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 
@@ -206,7 +207,7 @@ export default function ManageUsers() {
             {pendingUsers.map((u) => (
               <div key={u.id} className="card p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{u.full_name} <span className="text-xs text-ink/50 font-normal capitalize">({u.role})</span></p>
+                  <p className="font-semibold">{titleCase(u.full_name)} <span className="text-xs text-ink/50 font-normal capitalize">({u.role})</span></p>
                   <p className="text-sm text-ink/60">
                     {u.role === "student" && `Class ${u.class_level} · `}
                     {u.role === "teacher" && `${u.subject} · `}
@@ -233,10 +234,10 @@ export default function ManageUsers() {
             {parents.map((p) => (
               <div key={p.id} className="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <p className="font-semibold">{p.full_name} <span className="text-xs text-ink/50 font-normal">— {p.phone}</span></p>
+                  <p className="font-semibold">{titleCase(p.full_name)} <span className="text-xs text-ink/50 font-normal">— {p.phone}</span></p>
                   <p className="text-xs mt-1">
                     {p.link?.student_id ? (
-                      <span className="text-leaf font-semibold">Linked to {p.link.profiles?.full_name || "a student"}</span>
+                      <span className="text-leaf font-semibold">Linked to {titleCase(p.link.profiles?.full_name) || "a student"}</span>
                     ) : (
                       <span className="text-ink/50">Not linked to a student yet</span>
                     )}
@@ -273,7 +274,7 @@ export default function ManageUsers() {
             {students.map((s) => (
               <div key={s.id} className="card p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{s.full_name} <span className="text-xs text-ink/50 font-normal">— Class {s.class_level} · {s.phone}</span></p>
+                  <p className="font-semibold">{titleCase(s.full_name)} <span className="text-xs text-ink/50 font-normal">— Class {s.class_level} · {s.phone}</span></p>
                   <p className="text-xs mt-1">
                     {s.subEndsAt ? (
                       <span className="text-leaf font-semibold">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>

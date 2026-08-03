@@ -8,6 +8,7 @@ import Tabs from "@/components/Tabs";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
 import StatusPill from "@/components/StatusPill";
+import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
@@ -20,6 +21,7 @@ export default function TeacherDashboard() {
   const [tab, setTab] = useState("overview");
   const [todayLive, setTodayLive] = useState([]);
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Attendance
@@ -114,6 +116,8 @@ export default function TeacherDashboard() {
   }
 
   async function saveAttendance() {
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving attendance...");
     const rows = attStudents.map((s) => ({
       student_id: s.id,
@@ -123,16 +127,19 @@ export default function TeacherDashboard() {
     }));
     const { error } = await supabase.from("attendance").upsert(rows, { onConflict: "student_id,class_date" });
     setStatus(error ? "Error: " + error.message : "Attendance saved.");
+    setSaving(false);
   }
 
   async function submitAssignment(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving assignment...");
     const { error } = await supabase.from("assignments").insert({
       class_level: parseInt(assignForm.classLevel, 10),
-      subject: assignForm.subject,
-      title: assignForm.title,
-      description: assignForm.description,
+      subject: assignForm.subject.trim(),
+      title: assignForm.title.trim(),
+      description: assignForm.description.trim(),
       due_date: assignForm.dueDate || null,
       created_by: session.user.id,
     });
@@ -141,6 +148,7 @@ export default function TeacherDashboard() {
       setAssignForm({ ...assignForm, subject: "", title: "", description: "", dueDate: "" });
       loadAssignments(session.user.id);
     }
+    setSaving(false);
   }
 
   function addQuestion() {
@@ -164,11 +172,13 @@ export default function TeacherDashboard() {
       setStatus(`Please mark the correct answer for question ${missingIndex + 1} before saving.`);
       return;
     }
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving test...");
     const { error } = await supabase.from("tests").insert({
       class_level: parseInt(testForm.classLevel, 10),
-      subject: testForm.subject,
-      title: testForm.title,
+      subject: testForm.subject.trim(),
+      title: testForm.title.trim(),
       questions,
       scheduled_at: testForm.scheduledDate
         ? new Date(`${testForm.scheduledDate}T${testForm.scheduledTime || "00:00"}`).toISOString()
@@ -180,6 +190,7 @@ export default function TeacherDashboard() {
       setTestForm({ ...testForm, subject: "", title: "", scheduledDate: "", scheduledTime: "" });
       setQuestions([{ q: "", options: ["", "", "", ""], correct: null }]);
     }
+    setSaving(false);
   }
 
   async function respondToDoubt(id) {
@@ -195,7 +206,7 @@ export default function TeacherDashboard() {
     <>
       <Navbar session={session} role="teacher" />
       <main className="px-6 md:px-10 py-8 max-w-4xl mx-auto">
-        <PageHeader eyebrow={profile?.subject} title="Teacher dashboard" subtitle={profile?.full_name} />
+        <PageHeader eyebrow={profile?.subject} title="Teacher dashboard" subtitle={titleCase(profile?.full_name)} />
 
         <Tabs
           tabs={TABS}
@@ -226,7 +237,7 @@ export default function TeacherDashboard() {
               <div className="card p-4 space-y-2">
                 {attStudents.map((s) => (
                   <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
-                    <span className="font-medium">{s.full_name}</span>
+                    <span className="font-medium">{titleCase(s.full_name)}</span>
                     <select className="input-field w-32 py-1" value={attMarks[s.id]} onChange={(e) => setAttMarks({ ...attMarks, [s.id]: e.target.value })}>
                       <option value="present">Present</option>
                       <option value="absent">Absent</option>
@@ -234,7 +245,7 @@ export default function TeacherDashboard() {
                     </select>
                   </div>
                 ))}
-                <button onClick={saveAttendance} className="btn-primary mt-3">Save attendance</button>
+                <button onClick={saveAttendance} disabled={saving} className="btn-primary mt-3">{saving ? "Saving..." : "Save attendance"}</button>
               </div>
             )}
           </div>
@@ -250,7 +261,7 @@ export default function TeacherDashboard() {
               <input required placeholder="Title" className="input-field" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })} />
               <textarea placeholder="Description" className="input-field" rows={3} value={assignForm.description} onChange={(e) => setAssignForm({ ...assignForm, description: e.target.value })} />
               <input type="date" className="input-field" value={assignForm.dueDate} onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })} />
-              <button className="btn-primary">Add assignment</button>
+              <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add assignment"}</button>
             </form>
 
             <div>
@@ -276,8 +287,12 @@ export default function TeacherDashboard() {
                         {assignmentSubmissions.map((s) => (
                           <div key={s.id} className="flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm bg-ink/[0.02] rounded-lg p-3">
                             <div>
-                              <p className="font-medium">{s.profiles?.full_name || "Student"}</p>
-                              <a href={s.file_url} target="_blank" rel="noreferrer" className="text-clay text-xs font-semibold">View submission</a>
+                              <p className="font-medium">{titleCase(s.profiles?.full_name) || "Student"}</p>
+                              {isLikelyUrl(s.file_url) ? (
+                                <a href={s.file_url} target="_blank" rel="noreferrer" className="text-clay text-xs font-semibold break-all">View submission</a>
+                              ) : (
+                                <p className="text-xs text-ink/70 whitespace-pre-wrap mt-0.5">{s.file_url}</p>
+                              )}
                               {s.grade && <span className="ml-2 text-xs text-leaf font-semibold">Graded — {s.grade}</span>}
                             </div>
                             {!s.grade && (
@@ -331,7 +346,7 @@ export default function TeacherDashboard() {
               </div>
             ))}
             <button type="button" onClick={addQuestion} className="btn-secondary text-sm">+ Add question</button>
-            <button className="btn-primary w-full">Create test</button>
+            <button disabled={saving} className="btn-primary w-full">{saving ? "Saving..." : "Create test"}</button>
           </form>
         )}
 
@@ -356,7 +371,7 @@ export default function TeacherDashboard() {
             {openDoubts.length === 0 && <EmptyState icon="❓" title="No open doubts" />}
             {openDoubts.map((d) => (
               <div key={d.id} className="card p-4">
-                <p className="text-xs text-ink/50 mb-1">{d.profiles?.full_name} — Class {d.profiles?.class_level} — {d.subject}</p>
+                <p className="text-xs text-ink/50 mb-1">{titleCase(d.profiles?.full_name)} — Class {d.profiles?.class_level} — {d.subject}</p>
                 <p className="font-medium mb-2">{d.question}</p>
                 <textarea placeholder="Type your response..." className="input-field mb-2" rows={2} value={responses[d.id] || ""} onChange={(e) => setResponses({ ...responses, [d.id]: e.target.value })} />
                 <button onClick={() => respondToDoubt(d.id)} className="btn-primary text-sm py-1.5">Send response</button>

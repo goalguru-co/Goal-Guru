@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
+import { titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 export default function ParentDashboard() {
@@ -100,13 +101,13 @@ export default function ParentDashboard() {
                       selectedChild?.id === c.id ? "bg-clay text-white border-clay shadow-glow" : "border-line hover:border-clay/40"
                     }`}
                   >
-                    {c.full_name}
+                    {titleCase(c.full_name)}
                   </button>
                 ))}
               </div>
             )}
 
-            <p className="text-ink/60 mb-6">Showing data for <span className="font-semibold text-ink">{selectedChild?.full_name}</span> — Class {selectedChild?.class_level}</p>
+            <p className="text-ink/60 mb-6">Showing data for <span className="font-semibold text-ink">{titleCase(selectedChild?.full_name)}</span> — Class {selectedChild?.class_level}</p>
 
             <div className="grid md:grid-cols-4 gap-4 mb-6">
               <StatCard label="Attendance" value={attendancePct !== null ? `${attendancePct}%` : "—"} icon="📅" accent="clay" />

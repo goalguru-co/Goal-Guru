@@ -29,14 +29,14 @@ export default function SignupPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         password: form.password,
         role,
-        fullName: form.fullName,
-        phone: form.phone,
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
         classLevel: role === "student" ? parseInt(form.classLevel, 10) : null,
-        subject: role === "teacher" ? form.subject : null,
-        childPhone: role === "parent" ? form.childPhone : null,
+        subject: role === "teacher" ? form.subject.trim() : null,
+        childPhone: role === "parent" ? form.childPhone.trim() : null,
       }),
     });
     const result = await res.json();

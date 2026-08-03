@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
+import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 const QUICK_ACTIONS = [
@@ -48,6 +49,8 @@ export default function DashboardPage() {
   const [activeTest, setActiveTest] = useState(null);
   const [doubtForm, setDoubtForm] = useState({ subject: "", question: "" });
   const [loading, setLoading] = useState(true);
+  const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const [submittingDoubt, setSubmittingDoubt] = useState(false);
 
   async function loadAll() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -99,25 +102,30 @@ export default function DashboardPage() {
 
   async function submitAssignment(assignmentId) {
     const fileUrl = (submitLinks[assignmentId] || "").trim();
-    if (!fileUrl) return;
+    if (!fileUrl || submittingAssignment) return;
+    setSubmittingAssignment(true);
     await supabase.from("assignment_submissions").insert({
       assignment_id: assignmentId,
       student_id: session.user.id,
       file_url: fileUrl,
     });
     setSubmitLinks((s) => ({ ...s, [assignmentId]: "" }));
-    loadAll();
+    await loadAll();
+    setSubmittingAssignment(false);
   }
 
   async function submitDoubt(e) {
     e.preventDefault();
+    if (submittingDoubt) return;
+    setSubmittingDoubt(true);
     await supabase.from("doubts").insert({
       student_id: session.user.id,
-      subject: doubtForm.subject,
-      question: doubtForm.question,
+      subject: doubtForm.subject.trim(),
+      question: doubtForm.question.trim(),
     });
     setDoubtForm({ subject: "", question: "" });
-    loadAll();
+    await loadAll();
+    setSubmittingDoubt(false);
   }
 
   if (loading) return <PageLoading />;
@@ -155,7 +163,7 @@ export default function DashboardPage() {
       <main className="px-6 md:px-10 py-8 max-w-6xl mx-auto">
         <PageHeader
           eyebrow={`Class ${profile?.class_level}`}
-          title={<>👋 Welcome back, {profile?.full_name?.split(" ")[0]}</>}
+          title={<>👋 Welcome back, {titleCase(profile?.full_name?.split(" ")[0])}</>}
         />
 
         {!hasAccess && (
@@ -250,6 +258,13 @@ export default function DashboardPage() {
 
         {(tab === "practice" || tab === "tests") && (
           <div>
+            {!activeTest && (
+              <p className="text-sm text-ink/50 mb-4">
+                {tab === "practice"
+                  ? "Always-available sets you can attempt anytime to sharpen a topic — not scored against a deadline."
+                  : "Scheduled unit tests set by your teacher, released at a specific date and time."}
+              </p>
+            )}
             {activeTest ? (
               <div>
                 <button onClick={() => setActiveTest(null)} className="btn-secondary text-sm mb-4">← Back to list</button>
@@ -287,8 +302,11 @@ export default function DashboardPage() {
 
         {tab === "assignments" && (
           <div className="space-y-3">
-            {assignments.length === 0 && <EmptyState icon="📚" title="No assignments yet" subtitle="Your teacher hasn't posted any homework for this class yet." />}
-            {assignments.map((a) => {
+            {!hasAccess && (
+              <div className="card p-5 text-sm text-ink/60">Subscribe to view and submit assignments.</div>
+            )}
+            {hasAccess && assignments.length === 0 && <EmptyState icon="📚" title="No assignments yet" subtitle="Your teacher hasn't posted any homework for this class yet." />}
+            {hasAccess && assignments.map((a) => {
               const submission = submittedAssignments[a.id];
               const overdue = a.due_date && new Date(a.due_date) < new Date() && !submission;
               return (
@@ -313,15 +331,25 @@ export default function DashboardPage() {
                       </span>
                     ) : null}
                   </div>
-                  {!submission && (
-                    <div className="flex gap-2 mt-3">
-                      <input
-                        placeholder="Paste a link to your work (Drive, doc, photo, etc.)"
+                  {submission ? (
+                    <div className="mt-3 pt-3 border-t border-line">
+                      <p className="text-xs text-ink/50 mb-1">Your submission:</p>
+                      {isLikelyUrl(submission.file_url) ? (
+                        <a href={submission.file_url} target="_blank" rel="noreferrer" className="text-sm text-clay font-medium break-all">{submission.file_url}</a>
+                      ) : (
+                        <p className="text-sm text-ink whitespace-pre-wrap">{submission.file_url}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col md:flex-row gap-2 mt-3">
+                      <textarea
+                        placeholder="Type your answer, or paste a link to your work (Drive, doc, photo, etc.)"
                         className="input-field text-sm"
+                        rows={2}
                         value={submitLinks[a.id] || ""}
                         onChange={(e) => setSubmitLinks((s) => ({ ...s, [a.id]: e.target.value }))}
                       />
-                      <button onClick={() => submitAssignment(a.id)} className="btn-primary text-sm py-1.5 whitespace-nowrap">Submit</button>
+                      <button onClick={() => submitAssignment(a.id)} disabled={submittingAssignment} className="btn-primary text-sm py-1.5 whitespace-nowrap self-start">{submittingAssignment ? "Submitting..." : "Submit"}</button>
                     </div>
                   )}
                 </div>
@@ -423,7 +451,7 @@ export default function DashboardPage() {
                 value={doubtForm.question}
                 onChange={(e) => setDoubtForm({ ...doubtForm, question: e.target.value })}
               />
-              <button className="btn-primary w-full">Submit</button>
+              <button disabled={submittingDoubt} className="btn-primary w-full">{submittingDoubt ? "Submitting..." : "Submit"}</button>
             </form>
             <div className="space-y-3">
               {doubts.length === 0 && <EmptyState icon="❓" title="No doubts asked yet" />}
@@ -445,7 +473,7 @@ export default function DashboardPage() {
         {tab === "profile" && (
           <div className="card p-6 max-w-md">
             <p className="label-eyebrow mb-1">Name</p>
-            <p className="mb-4 font-medium">{profile?.full_name}</p>
+            <p className="mb-4 font-medium">{titleCase(profile?.full_name)}</p>
             <p className="label-eyebrow mb-1">Class</p>
             <p className="mb-4 font-medium">Class {profile?.class_level}</p>
             <p className="label-eyebrow mb-1">Phone</p>

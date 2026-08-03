@@ -18,6 +18,7 @@ export default function AdminHome() {
   const [stats, setStats] = useState({});
   const [announceForm, setAnnounceForm] = useState({ classLevel: "", title: "", message: "" });
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
   const [upcomingLive, setUpcomingLive] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,15 +72,18 @@ export default function AdminHome() {
 
   async function submitAnnouncement(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setStatus("Posting...");
     const { error } = await supabase.from("announcements").insert({
       class_level: announceForm.classLevel ? parseInt(announceForm.classLevel, 10) : null,
-      title: announceForm.title,
-      message: announceForm.message,
+      title: announceForm.title.trim(),
+      message: announceForm.message.trim(),
       created_by: session.user.id,
     });
     setStatus(error ? "Error: " + error.message : "Announcement posted.");
     if (!error) setAnnounceForm({ classLevel: "", title: "", message: "" });
+    setSaving(false);
   }
 
   if (loading) return <PageLoading />;
@@ -131,7 +135,7 @@ export default function AdminHome() {
             </select>
             <input required placeholder="Title" className="input-field" value={announceForm.title} onChange={(e) => setAnnounceForm({ ...announceForm, title: e.target.value })} />
             <textarea required placeholder="Message" className="input-field" rows={2} value={announceForm.message} onChange={(e) => setAnnounceForm({ ...announceForm, message: e.target.value })} />
-            <button className="btn-primary w-full">Post</button>
+            <button disabled={saving} className="btn-primary w-full">{saving ? "Posting..." : "Post"}</button>
             <StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill>
           </form>
         </div>

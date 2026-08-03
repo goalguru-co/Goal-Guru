@@ -21,6 +21,7 @@ export default function ManageContent() {
   const [session, setSession] = useState(null);
   const [tab, setTab] = useState("video");
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [videoForm, setVideoForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "" });
   const [liveForm, setLiveForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "", scheduledDate: "", scheduledTime: "" });
@@ -48,24 +49,29 @@ export default function ManageContent() {
 
   async function submitVideo(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving video...");
     const { error } = await supabase.from("videos").insert({
       class_level: parseInt(videoForm.classLevel, 10),
-      subject: videoForm.subject,
-      title: videoForm.title,
+      subject: videoForm.subject.trim(),
+      title: videoForm.title.trim(),
       youtube_id: extractYoutubeId(videoForm.youtubeId),
     });
     setStatus(error ? "Error: " + error.message : "Video added.");
     if (!error) setVideoForm({ ...videoForm, subject: "", title: "", youtubeId: "" });
+    setSaving(false);
   }
 
   async function submitLive(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving live class...");
     const { error } = await supabase.from("live_classes").insert({
       class_level: parseInt(liveForm.classLevel, 10),
-      subject: liveForm.subject,
-      title: liveForm.title,
+      subject: liveForm.subject.trim(),
+      title: liveForm.title.trim(),
       youtube_id: extractYoutubeId(liveForm.youtubeId),
       scheduled_at: liveForm.scheduledDate
         ? new Date(`${liveForm.scheduledDate}T${liveForm.scheduledTime || "00:00"}`).toISOString()
@@ -73,19 +79,23 @@ export default function ManageContent() {
     });
     setStatus(error ? "Error: " + error.message : "Live class added.");
     if (!error) setLiveForm({ ...liveForm, subject: "", title: "", youtubeId: "", scheduledDate: "", scheduledTime: "" });
+    setSaving(false);
   }
 
   async function submitMaterial(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setStatus("Saving study material...");
     const { error } = await supabase.from("study_material").insert({
       class_level: parseInt(materialForm.classLevel, 10),
-      subject: materialForm.subject,
-      title: materialForm.title,
-      file_url: materialForm.fileUrl,
+      subject: materialForm.subject.trim(),
+      title: materialForm.title.trim(),
+      file_url: materialForm.fileUrl.trim(),
     });
     setStatus(error ? "Error: " + error.message : "Study material added.");
     if (!error) setMaterialForm({ ...materialForm, subject: "", title: "", fileUrl: "" });
+    setSaving(false);
   }
 
   return (
@@ -112,7 +122,7 @@ export default function ManageContent() {
             <Field label="YouTube link or video ID (unlisted)">
               <input required className="input-field" value={videoForm.youtubeId} onChange={(e) => setVideoForm({ ...videoForm, youtubeId: e.target.value })} />
             </Field>
-            <button className="btn-primary">Add video</button>
+            <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add video"}</button>
           </form>
         )}
 
@@ -138,7 +148,7 @@ export default function ManageContent() {
                 <input required type="time" className="input-field" value={liveForm.scheduledTime} onChange={(e) => setLiveForm({ ...liveForm, scheduledTime: e.target.value })} />
               </div>
             </Field>
-            <button className="btn-primary">Add live class</button>
+            <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add live class"}</button>
           </form>
         )}
 
@@ -158,7 +168,7 @@ export default function ManageContent() {
             <Field label="File link (Google Drive share link, etc.)">
               <input required className="input-field" value={materialForm.fileUrl} onChange={(e) => setMaterialForm({ ...materialForm, fileUrl: e.target.value })} />
             </Field>
-            <button className="btn-primary">Add study material</button>
+            <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add study material"}</button>
           </form>
         )}
 
