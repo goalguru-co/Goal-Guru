@@ -7,6 +7,8 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
+import DonutChart from "@/components/DonutChart";
+import TrendLine from "@/components/TrendLine";
 import { titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
@@ -75,6 +77,20 @@ export default function ParentDashboard() {
   const avgScorePct = attempts.length
     ? Math.round((attempts.reduce((s, a) => s + (a.total ? a.score / a.total : 0), 0) / attempts.length) * 100)
     : null;
+
+  const attendanceCounts = { present: 0, absent: 0, late: 0 };
+  attendance.forEach((a) => { attendanceCounts[a.status] = (attendanceCounts[a.status] || 0) + 1; });
+  const attendanceSegments = [
+    { label: "present", value: attendanceCounts.present, color: "#06B6D4" },
+    { label: "absent", value: attendanceCounts.absent, color: "#FF4D8D" },
+    { label: "late", value: attendanceCounts.late, color: "#FFB020" },
+  ].filter((s) => s.value > 0);
+
+  const scoreTrend = [...attempts]
+    .filter((a) => a.completed_at)
+    .sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at))
+    .slice(-10)
+    .map((a) => ({ label: new Date(a.completed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }), value: a.total ? Math.round((a.score / a.total) * 100) : 0 }));
 
   return (
     <>
@@ -145,8 +161,10 @@ export default function ParentDashboard() {
 
             {expandedStat === "attendance" && (
               <div className="card p-5 mb-6">
-                <p className="label-eyebrow mb-3">Day-by-day attendance (last {attendance.length})</p>
+                <p className="label-eyebrow mb-3">Attendance breakdown</p>
                 {attendance.length === 0 && <p className="text-sm text-ink/50">No attendance recorded yet.</p>}
+                {attendanceSegments.length > 0 && <div className="mb-4"><DonutChart segments={attendanceSegments} /></div>}
+                <p className="label-eyebrow mb-3">Day-by-day (last {attendance.length})</p>
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {attendance.map((a) => (
                     <div key={a.id} className="flex items-center justify-between text-sm px-3 py-2 rounded-lg bg-ink/[0.02]">
@@ -164,6 +182,12 @@ export default function ParentDashboard() {
 
             {expandedStat === "scores" && (
               <div className="card p-5 mb-6">
+                {scoreTrend.length > 1 && (
+                  <>
+                    <p className="label-eyebrow mb-3">Score trend</p>
+                    <div className="mb-4"><TrendLine points={scoreTrend} /></div>
+                  </>
+                )}
                 <p className="label-eyebrow mb-3">Test score breakdown</p>
                 {attempts.length === 0 && <p className="text-sm text-ink/50">No tests taken yet.</p>}
                 {attempts.map((a) => (

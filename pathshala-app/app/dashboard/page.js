@@ -9,6 +9,11 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
+import SubjectGrid from "@/components/SubjectGrid";
+import Badge from "@/components/Badge";
+import DonutChart from "@/components/DonutChart";
+import BarChart from "@/components/BarChart";
+import TrendLine from "@/components/TrendLine";
 import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
@@ -24,11 +29,7 @@ const QUICK_ACTIONS = [
   { key: "profile", label: "Profile", icon: "👤", color: "#FFB020" },
 ];
 
-function badgeFor(points) {
-  if (points >= 300) return "Gold";
-  if (points >= 100) return "Silver";
-  return "Bronze";
-}
+const ASSIGNMENT_POINTS = 20;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [material, setMaterial] = useState([]);
   const [tests, setTests] = useState([]);
   const [attempts, setAttempts] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submitLinks, setSubmitLinks] = useState({});
@@ -51,6 +53,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
   const [submittingDoubt, setSubmittingDoubt] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState({});
+  const [weeklyRank, setWeeklyRank] = useState(null);
 
   async function loadAll() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -74,7 +78,7 @@ export default function DashboardPage() {
       .maybeSingle();
     setSubscription(sub);
 
-    const [{ data: videoData }, { data: liveData }, { data: materialData }, { data: testData }, { data: attemptData }, { data: assignmentData }, { data: submissionData }, { data: doubtData }, { data: annData }] = await Promise.all([
+    const [{ data: videoData }, { data: liveData }, { data: materialData }, { data: testData }, { data: attemptData }, { data: assignmentData }, { data: submissionData }, { data: doubtData }, { data: annData }, { data: attendanceData }] = await Promise.all([
       supabase.from("videos").select("*").eq("class_level", classLevel).order("subject").order("sort_order"),
       supabase.from("live_classes").select("*").eq("class_level", classLevel).order("scheduled_at"),
       supabase.from("study_material").select("*").eq("class_level", classLevel),
@@ -84,6 +88,7 @@ export default function DashboardPage() {
       supabase.from("assignment_submissions").select("*").eq("student_id", session.user.id),
       supabase.from("doubts").select("*").eq("student_id", session.user.id).order("created_at", { ascending: false }),
       supabase.from("announcements").select("*").or(`class_level.eq.${classLevel},class_level.is.null`).order("created_at", { ascending: false }).limit(5),
+      supabase.from("attendance").select("*").eq("student_id", session.user.id).order("class_date", { ascending: false }).limit(30),
     ]);
 
     setVideos(videoData || []);
@@ -95,7 +100,16 @@ export default function DashboardPage() {
     setSubmissions(submissionData || []);
     setDoubts(doubtData || []);
     setAnnouncements(annData || []);
+    setAttendance(attendanceData || []);
     setLoading(false);
+
+    fetch("/api/weekly-rank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((r) => { if (!r.error) setWeeklyRank(r); })
+      .catch(() => {});
   }
 
   useEffect(() => { loadAll(); }, []);
@@ -109,6 +123,11 @@ export default function DashboardPage() {
       student_id: session.user.id,
       file_url: fileUrl,
     });
+
+    // gamification: flat points for submitting an assignment on time
+    const { data: profileRow } = await supabase.from("profiles").select("points").eq("id", session.user.id).single();
+    await supabase.from("profiles").update({ points: (profileRow?.points || 0) + ASSIGNMENT_POINTS }).eq("id", session.user.id);
+
     setSubmitLinks((s) => ({ ...s, [assignmentId]: "" }));
     await loadAll();
     setSubmittingAssignment(false);
@@ -157,6 +176,20 @@ export default function DashboardPage() {
   const strongest = subjectList.length ? [...subjectList].sort((a, b) => b.pct - a.pct)[0] : null;
   const weakest = subjectList.length ? [...subjectList].sort((a, b) => a.pct - b.pct)[0] : null;
 
+  const scoreTrend = [...attempts]
+    .filter((a) => a.completed_at)
+    .sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at))
+    .slice(-10)
+    .map((a) => ({ label: new Date(a.completed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }), value: a.total ? Math.round((a.score / a.total) * 100) : 0 }));
+
+  const attendanceCounts = { present: 0, absent: 0, late: 0 };
+  attendance.forEach((a) => { attendanceCounts[a.status] = (attendanceCounts[a.status] || 0) + 1; });
+  const attendanceSegments = [
+    { label: "present", value: attendanceCounts.present, color: "#06B6D4" },
+    { label: "absent", value: attendanceCounts.absent, color: "#FF4D8D" },
+    { label: "late", value: attendanceCounts.late, color: "#FFB020" },
+  ].filter((s) => s.value > 0);
+
   return (
     <>
       <Navbar session={session} role="student" />
@@ -200,6 +233,24 @@ export default function DashboardPage() {
 
         {tab === "overview" && (
           <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="card p-5">
+                <p className="label-eyebrow mb-3">Your badge</p>
+                <Badge points={profile?.points || 0} size="lg" />
+              </div>
+              <div className="card p-5">
+                <p className="label-eyebrow mb-2">Weekly class rank</p>
+                {weeklyRank && weeklyRank.rank ? (
+                  <>
+                    <p className="font-display text-3xl font-extrabold text-ink">#{weeklyRank.rank} <span className="text-base font-body font-medium text-ink/50">of {weeklyRank.totalStudents}</span></p>
+                    <p className="text-xs text-ink/50 mt-1">{weeklyRank.weeklyPoints} pts earned this week</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-ink/50 mt-1">Complete a test this week to get ranked among your classmates.</p>
+                )}
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-3 gap-4">
               <StatCard label="Points" value={profile?.points || 0} icon="🏆" accent="saffron" />
               <StatCard label="Streak" value={`${profile?.streak_count || 0} tests`} icon="🔥" accent="spark" />
@@ -209,7 +260,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-ink/50 mt-1">{upcomingLive[0] ? `Live: ${upcomingLive[0].title}` : "No live class today"}</p>
               </div>
             </div>
-            <p className="text-xs text-ink/40 -mt-4">Badge: {badgeFor(profile?.points || 0)} 🏆</p>
 
             {continueVideo && (
               <div className="card p-5">
@@ -233,26 +283,44 @@ export default function DashboardPage() {
               <div className="card p-5">
                 <p className="label-eyebrow mb-2">🔔 Announcements</p>
                 {announcements.length === 0 && <p className="text-sm text-ink/50">No announcements yet.</p>}
-                {announcements.map((a) => <p key={a.id} className="text-sm mb-1"><span className="font-medium">{a.title}:</span> {a.message}</p>)}
+                {announcements.map((a) => (
+                  <div key={a.id} className="mb-3 last:mb-0">
+                    <p className="text-sm"><span className="font-medium">{a.title}:</span> {a.message}</p>
+                    {a.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.image_url} alt={a.title} className="mt-2 rounded-lg max-h-40 w-auto object-cover" />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         )}
 
         {tab === "learn" && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div>
             {videos.length === 0 && <EmptyState icon="🎥" title="No lectures uploaded yet" subtitle="Check back soon — your teacher hasn't added any videos for this class yet." />}
-            {videos.map((v) => (
-              <div key={v.id} className="card p-4">
-                <p className="label-eyebrow mb-2">{v.subject}</p>
-                <h3 className="font-medium mb-3">{v.title}</h3>
-                {hasAccess ? (
-                  <VideoEmbed youtubeId={v.youtube_id} title={v.title} studentId={session.user.id} videoId={v.id} />
-                ) : (
-                  <div className="aspect-video bg-ink/5 rounded-xl flex items-center justify-center text-sm text-ink/50">Subscribe to unlock</div>
-                )}
+            {videos.length > 0 && !subjectFilter.learn && (
+              <SubjectGrid items={videos} icon="🎥" onSelect={(s) => setSubjectFilter((f) => ({ ...f, learn: s }))} />
+            )}
+            {subjectFilter.learn && (
+              <div>
+                <button onClick={() => setSubjectFilter((f) => ({ ...f, learn: null }))} className="btn-secondary text-sm mb-4">← All subjects</button>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {videos.filter((v) => v.subject === subjectFilter.learn).map((v) => (
+                    <div key={v.id} className="card p-4">
+                      <p className="label-eyebrow mb-2">{v.subject}</p>
+                      <h3 className="font-medium mb-3">{v.title}</h3>
+                      {hasAccess ? (
+                        <VideoEmbed youtubeId={v.youtube_id} title={v.title} studentId={session.user.id} videoId={v.id} />
+                      ) : (
+                        <div className="aspect-video bg-ink/5 rounded-xl flex items-center justify-center text-sm text-ink/50">Subscribe to unlock</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -272,29 +340,41 @@ export default function DashboardPage() {
                 <TestPlayer test={activeTest} studentId={session.user.id} onDone={loadAll} />
               </div>
             ) : (
-              <div className="space-y-3">
+              <div>
                 {(tab === "practice" ? practiceTests : scheduledTests).length === 0 && (
                   <EmptyState icon="🎯" title={`No ${tab === "practice" ? "practice sets" : "scheduled tests"} yet`} />
                 )}
-                {(tab === "practice" ? practiceTests : scheduledTests).map((t) => {
-                  const attempt = attemptedTests[t.id];
-                  return (
-                    <div key={t.id} className="card p-4 flex items-center justify-between">
-                      <div>
-                        <p className="label-eyebrow mb-1">{t.subject}</p>
-                        <p className="font-medium">{t.title}</p>
-                        <p className="text-xs text-ink/50">{t.questions?.length || 0} questions {t.scheduled_at ? `· ${new Date(t.scheduled_at).toLocaleString()}` : ""}</p>
-                      </div>
-                      {attempt ? (
-                        <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Completed — {attempt.score}/{attempt.total}</span>
-                      ) : (
-                        <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
-                          {hasAccess ? "Start" : "Locked"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                {(tab === "practice" ? practiceTests : scheduledTests).length > 0 && !subjectFilter[tab] && (
+                  <SubjectGrid items={tab === "practice" ? practiceTests : scheduledTests} icon="🎯" onSelect={(s) => setSubjectFilter((f) => ({ ...f, [tab]: s }))} />
+                )}
+                {subjectFilter[tab] && (
+                  <div className="space-y-3">
+                    <button onClick={() => setSubjectFilter((f) => ({ ...f, [tab]: null }))} className="btn-secondary text-sm mb-1">← All subjects</button>
+                    {(tab === "practice" ? practiceTests : scheduledTests).filter((t) => t.subject === subjectFilter[tab]).map((t) => {
+                      const attempt = attemptedTests[t.id];
+                      const maxPoints = (t.questions || []).filter((q) => q.type !== "short").length * 10;
+                      return (
+                        <div key={t.id} className="card p-4 flex items-center justify-between">
+                          <div>
+                            <p className="label-eyebrow mb-1">{t.subject}</p>
+                            <p className="font-medium">{t.title}</p>
+                            <p className="text-xs text-ink/50">{t.questions?.length || 0} questions {t.scheduled_at ? `· ${new Date(t.scheduled_at).toLocaleString()}` : ""}</p>
+                            {!attempt && maxPoints > 0 && (
+                              <p className="text-xs text-saffron font-semibold mt-1">🏆 Earn up to {maxPoints} pts</p>
+                            )}
+                          </div>
+                          {attempt ? (
+                            <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Completed — {attempt.score}/{attempt.total}</span>
+                          ) : (
+                            <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
+                              {hasAccess ? "Start" : "Locked"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -341,15 +421,18 @@ export default function DashboardPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col md:flex-row gap-2 mt-3">
-                      <textarea
-                        placeholder="Type your answer, or paste a link to your work (Drive, doc, photo, etc.)"
-                        className="input-field text-sm"
-                        rows={2}
-                        value={submitLinks[a.id] || ""}
-                        onChange={(e) => setSubmitLinks((s) => ({ ...s, [a.id]: e.target.value }))}
-                      />
-                      <button onClick={() => submitAssignment(a.id)} disabled={submittingAssignment} className="btn-primary text-sm py-1.5 whitespace-nowrap self-start">{submittingAssignment ? "Submitting..." : "Submit"}</button>
+                    <div className="mt-3">
+                      <p className="text-xs text-saffron font-semibold mb-2">🏆 Earn {ASSIGNMENT_POINTS} pts for submitting</p>
+                      <div className="flex flex-col md:flex-row gap-2">
+                        <textarea
+                          placeholder="Type your answer, or paste a link to your work (Drive, doc, photo, etc.)"
+                          className="input-field text-sm"
+                          rows={2}
+                          value={submitLinks[a.id] || ""}
+                          onChange={(e) => setSubmitLinks((s) => ({ ...s, [a.id]: e.target.value }))}
+                        />
+                        <button onClick={() => submitAssignment(a.id)} disabled={submittingAssignment} className="btn-primary text-sm py-1.5 whitespace-nowrap self-start">{submittingAssignment ? "Submitting..." : "Submit"}</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -359,20 +442,28 @@ export default function DashboardPage() {
         )}
 
         {tab === "live" && (
-          <div className="space-y-4">
+          <div>
             {liveClasses.length === 0 && <EmptyState icon="📅" title="No live classes scheduled" />}
-            {liveClasses.map((l) => (
-              <div key={l.id} className="card p-4">
-                <p className="label-eyebrow mb-1">{l.subject}</p>
-                <h3 className="font-medium mb-1">{l.title}</h3>
-                <p className="text-sm text-ink/60 mb-3">{new Date(l.scheduled_at).toLocaleString()}</p>
-                {hasAccess ? (
-                  <VideoEmbed youtubeId={l.youtube_id} title={l.title} />
-                ) : (
-                  <div className="aspect-video bg-ink/5 rounded-xl flex items-center justify-center text-sm text-ink/50">Subscribe to unlock</div>
-                )}
+            {liveClasses.length > 0 && !subjectFilter.live && (
+              <SubjectGrid items={liveClasses} icon="📅" onSelect={(s) => setSubjectFilter((f) => ({ ...f, live: s }))} />
+            )}
+            {subjectFilter.live && (
+              <div className="space-y-4">
+                <button onClick={() => setSubjectFilter((f) => ({ ...f, live: null }))} className="btn-secondary text-sm">← All subjects</button>
+                {liveClasses.filter((l) => l.subject === subjectFilter.live).map((l) => (
+                  <div key={l.id} className="card p-4">
+                    <p className="label-eyebrow mb-1">{l.subject}</p>
+                    <h3 className="font-medium mb-1">{l.title}</h3>
+                    <p className="text-sm text-ink/60 mb-3">{new Date(l.scheduled_at).toLocaleString()}</p>
+                    {hasAccess ? (
+                      <VideoEmbed youtubeId={l.youtube_id} title={l.title} />
+                    ) : (
+                      <div className="aspect-video bg-ink/5 rounded-xl flex items-center justify-center text-sm text-ink/50">Subscribe to unlock</div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -388,18 +479,29 @@ export default function DashboardPage() {
                 <p className="text-lg font-semibold">{weakest ? `${weakest.subject} — ${weakest.pct}%` : "Take a test to see this"}</p>
               </div>
             </div>
-            <div className="card p-5">
-              <p className="label-eyebrow mb-3">Subject-wise progress</p>
-              {subjectList.length === 0 && <p className="text-sm text-ink/50">No test attempts yet.</p>}
-              {subjectList.map((s) => (
-                <div key={s.subject} className="mb-3">
-                  <div className="flex justify-between text-sm mb-1"><span>{s.subject}</span><span className="font-semibold">{s.pct}%</span></div>
-                  <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-clay to-leaf rounded-full transition-all duration-700" style={{ width: `${s.pct}%` }} />
-                  </div>
-                </div>
-              ))}
+
+            {scoreTrend.length > 1 && (
+              <div className="card p-5">
+                <p className="label-eyebrow mb-3">Score trend (last {scoreTrend.length} tests)</p>
+                <TrendLine points={scoreTrend} />
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="card p-5">
+                <p className="label-eyebrow mb-3">Subject-wise progress</p>
+                {subjectList.length === 0 && <p className="text-sm text-ink/50">No test attempts yet.</p>}
+                {subjectList.length > 0 && (
+                  <BarChart data={subjectList.map((s) => ({ label: s.subject, value: s.pct }))} />
+                )}
+              </div>
+              <div className="card p-5">
+                <p className="label-eyebrow mb-3">Attendance breakdown</p>
+                {attendanceSegments.length === 0 && <p className="text-sm text-ink/50">No attendance recorded yet.</p>}
+                {attendanceSegments.length > 0 && <DonutChart segments={attendanceSegments} />}
+              </div>
             </div>
+
             <div className="card p-5">
               <p className="label-eyebrow mb-3">Test history</p>
               {attempts.length === 0 && <p className="text-sm text-ink/50">No attempts yet.</p>}
@@ -414,21 +516,29 @@ export default function DashboardPage() {
         )}
 
         {tab === "notes" && (
-          <div className="space-y-3">
+          <div>
             {material.length === 0 && <EmptyState icon="📄" title="No study material uploaded yet" />}
-            {material.map((m) => (
-              <div key={m.id} className="card p-4 flex items-center justify-between">
-                <div>
-                  <p className="label-eyebrow mb-1">{m.subject}</p>
-                  <h3 className="font-medium">{m.title}</h3>
-                </div>
-                {hasAccess ? (
-                  <a href={m.file_url} target="_blank" rel="noreferrer" className="btn-secondary text-sm py-1.5">Download</a>
-                ) : (
-                  <span className="text-sm text-ink/50">Locked</span>
-                )}
+            {material.length > 0 && !subjectFilter.notes && (
+              <SubjectGrid items={material} icon="📄" onSelect={(s) => setSubjectFilter((f) => ({ ...f, notes: s }))} />
+            )}
+            {subjectFilter.notes && (
+              <div className="space-y-3">
+                <button onClick={() => setSubjectFilter((f) => ({ ...f, notes: null }))} className="btn-secondary text-sm mb-1">← All subjects</button>
+                {material.filter((m) => m.subject === subjectFilter.notes).map((m) => (
+                  <div key={m.id} className="card p-4 flex items-center justify-between">
+                    <div>
+                      <p className="label-eyebrow mb-1">{m.subject}</p>
+                      <h3 className="font-medium">{m.title}</h3>
+                    </div>
+                    {hasAccess ? (
+                      <a href={m.file_url} target="_blank" rel="noreferrer" className="btn-secondary text-sm py-1.5">Download</a>
+                    ) : (
+                      <span className="text-sm text-ink/50">Locked</span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -478,8 +588,9 @@ export default function DashboardPage() {
             <p className="mb-4 font-medium">Class {profile?.class_level}</p>
             <p className="label-eyebrow mb-1">Phone</p>
             <p className="mb-4 font-medium">{profile?.phone}</p>
-            <p className="label-eyebrow mb-1">Points &amp; badge</p>
-            <p className="font-medium">{profile?.points || 0} pts — {badgeFor(profile?.points || 0)}</p>
+            <p className="label-eyebrow mb-2">Points &amp; badge</p>
+            <Badge points={profile?.points || 0} size="lg" />
+            <p className="text-sm text-ink/60 mt-3">{profile?.points || 0} total points</p>
           </div>
         )}
       </main>

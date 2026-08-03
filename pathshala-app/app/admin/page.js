@@ -16,7 +16,7 @@ export default function AdminHome() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [stats, setStats] = useState({});
-  const [announceForm, setAnnounceForm] = useState({ classLevel: "", title: "", message: "" });
+  const [announceForm, setAnnounceForm] = useState({ classLevel: "", title: "", message: "", imageUrl: "" });
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [upcomingLive, setUpcomingLive] = useState([]);
@@ -79,10 +79,11 @@ export default function AdminHome() {
       class_level: announceForm.classLevel ? parseInt(announceForm.classLevel, 10) : null,
       title: announceForm.title.trim(),
       message: announceForm.message.trim(),
+      image_url: announceForm.imageUrl.trim() || null,
       created_by: session.user.id,
     });
     setStatus(error ? "Error: " + error.message : "Announcement posted.");
-    if (!error) setAnnounceForm({ classLevel: "", title: "", message: "" });
+    if (!error) setAnnounceForm({ classLevel: "", title: "", message: "", imageUrl: "" });
     setSaving(false);
   }
 
@@ -135,6 +136,7 @@ export default function AdminHome() {
             </select>
             <input required placeholder="Title" className="input-field" value={announceForm.title} onChange={(e) => setAnnounceForm({ ...announceForm, title: e.target.value })} />
             <textarea required placeholder="Message" className="input-field" rows={2} value={announceForm.message} onChange={(e) => setAnnounceForm({ ...announceForm, message: e.target.value })} />
+            <input placeholder="Image URL (optional)" className="input-field" value={announceForm.imageUrl} onChange={(e) => setAnnounceForm({ ...announceForm, imageUrl: e.target.value })} />
             <button disabled={saving} className="btn-primary w-full">{saving ? "Posting..." : "Post"}</button>
             <StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill>
           </form>

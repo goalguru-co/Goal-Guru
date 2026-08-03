@@ -39,7 +39,7 @@ export default function TeacherDashboard() {
 
   // Test creation
   const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledDate: "", scheduledTime: "" });
-  const [questions, setQuestions] = useState([{ q: "", options: ["", "", "", ""], correct: null }]);
+  const [questions, setQuestions] = useState([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
 
   // Analytics
   const [analytics, setAnalytics] = useState([]);
@@ -176,7 +176,7 @@ export default function TeacherDashboard() {
   }
 
   function addQuestion() {
-    setQuestions([...questions, { q: "", options: ["", "", "", ""], correct: null }]);
+    setQuestions([...questions, { type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
   }
   function updateQuestion(i, field, value) {
     const copy = [...questions];
@@ -188,12 +188,29 @@ export default function TeacherDashboard() {
     copy[i].options[oi] = value;
     setQuestions(copy);
   }
+  function setQuestionType(i, type) {
+    const copy = [...questions];
+    if (type === "mcq") {
+      copy[i] = { type: "mcq", q: copy[i].q, options: ["", "", "", ""], correct: null };
+    } else {
+      copy[i] = { type: "short", q: copy[i].q, sampleAnswer: "" };
+    }
+    setQuestions(copy);
+  }
+  function removeQuestion(i) {
+    setQuestions(questions.filter((_, idx) => idx !== i));
+  }
 
   async function submitTest(e) {
     e.preventDefault();
-    const missingIndex = questions.findIndex((q) => q.correct === null || q.correct === undefined);
+    const missingIndex = questions.findIndex((q) => q.type === "mcq" && (q.correct === null || q.correct === undefined));
     if (missingIndex !== -1) {
       setStatus(`Please mark the correct answer for question ${missingIndex + 1} before saving.`);
+      return;
+    }
+    const emptyIndex = questions.findIndex((q) => !q.q.trim());
+    if (emptyIndex !== -1) {
+      setStatus(`Question ${emptyIndex + 1} is empty.`);
       return;
     }
     if (saving) return;
@@ -212,7 +229,7 @@ export default function TeacherDashboard() {
     setStatus(error ? "Error: " + error.message : "Test created.");
     if (!error) {
       setTestForm({ ...testForm, subject: "", title: "", scheduledDate: "", scheduledTime: "" });
-      setQuestions([{ q: "", options: ["", "", "", ""], correct: null }]);
+      setQuestions([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
     }
     setSaving(false);
   }
@@ -360,17 +377,43 @@ export default function TeacherDashboard() {
               </div>
             </div>
 
-            <p className="label-eyebrow">Questions</p>
+            <div className="flex items-center justify-between">
+              <p className="label-eyebrow">Questions</p>
+              <p className="text-xs text-ink/50">Students earn 10 pts per correct MCQ answer — up to {questions.filter((q) => q.type === "mcq").length * 10} pts on this test</p>
+            </div>
             {questions.map((q, i) => (
               <div key={i} className="border border-line rounded-xl p-4 space-y-2 bg-ink/[0.015]">
-                <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
-                <p className="text-xs text-ink/50">Select the radio button next to the correct option:</p>
-                {q.options.map((opt, oi) => (
-                  <div key={oi} className="flex items-center gap-2">
-                    <input type="radio" name={`correct-${i}`} checked={q.correct === oi} onChange={() => updateQuestion(i, "correct", oi)} />
-                    <input required placeholder={`Option ${oi + 1}`} className="input-field" value={opt} onChange={(e) => updateOption(i, oi, e.target.value)} />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex gap-1 p-0.5 rounded-lg bg-ink/[0.05]">
+                    <button type="button" onClick={() => setQuestionType(i, "mcq")} className={`px-3 py-1 text-xs font-semibold rounded-md ${q.type === "mcq" ? "bg-white text-clay shadow-sm" : "text-ink/50"}`}>Multiple choice</button>
+                    <button type="button" onClick={() => setQuestionType(i, "short")} className={`px-3 py-1 text-xs font-semibold rounded-md ${q.type === "short" ? "bg-white text-clay shadow-sm" : "text-ink/50"}`}>Short answer</button>
                   </div>
-                ))}
+                  {questions.length > 1 && (
+                    <button type="button" onClick={() => removeQuestion(i)} className="text-xs text-spark font-semibold">Remove</button>
+                  )}
+                </div>
+                <input required placeholder={`Question ${i + 1}`} className="input-field" value={q.q} onChange={(e) => updateQuestion(i, "q", e.target.value)} />
+                {q.type === "mcq" ? (
+                  <>
+                    <p className="text-xs text-ink/50">Select the radio button next to the correct option:</p>
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-center gap-2">
+                        <input type="radio" name={`correct-${i}`} checked={q.correct === oi} onChange={() => updateQuestion(i, "correct", oi)} />
+                        <input required placeholder={`Option ${oi + 1}`} className="input-field" value={opt} onChange={(e) => updateOption(i, oi, e.target.value)} />
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div>
+                    <p className="text-xs text-ink/50 mb-1">Students will type a free-text answer. This isn't auto-graded, and there's no review screen yet — you can check responses directly in your Supabase table if needed.</p>
+                    <input
+                      placeholder="Model answer (optional, for your own reference)"
+                      className="input-field"
+                      value={q.sampleAnswer || ""}
+                      onChange={(e) => updateQuestion(i, "sampleAnswer", e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             ))}
             <button type="button" onClick={addQuestion} className="btn-secondary text-sm">+ Add question</button>
