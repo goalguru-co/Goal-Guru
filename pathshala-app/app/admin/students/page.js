@@ -23,6 +23,10 @@ export default function ManageUsers() {
   const [linkStatus, setLinkStatus] = useState({});
   const [students, setStudents] = useState([]);
   const [subStatus, setSubStatus] = useState({});
+  const [expandedFeesStudent, setExpandedFeesStudent] = useState(null);
+  const [studentFees, setStudentFees] = useState([]);
+  const [feeInputs, setFeeInputs] = useState({});
+  const [feeStatus, setFeeStatus] = useState({});
   const [csvFile, setCsvFile] = useState(null);
   const [csvStatus, setCsvStatus] = useState("");
   const [generatedCreds, setGeneratedCreds] = useState([]);
@@ -117,6 +121,42 @@ export default function ManageUsers() {
     if (!parent.link) return;
     await supabase.from("parent_links").update({ student_id: null }).eq("id", parent.link.id);
     loadData();
+  }
+
+  async function toggleFees(studentId) {
+    if (expandedFeesStudent === studentId) {
+      setExpandedFeesStudent(null);
+      return;
+    }
+    setExpandedFeesStudent(studentId);
+    const { data } = await supabase.from("fees").select("*").eq("student_id", studentId).order("due_date");
+    setStudentFees(data || []);
+  }
+
+  async function addFee(studentId) {
+    const input = feeInputs[studentId] || {};
+    const amount = parseInt(input.amount, 10);
+    if (!amount) return;
+    setFeeStatus((s) => ({ ...s, [studentId]: "Saving..." }));
+    const { error } = await supabase.from("fees").insert({
+      student_id: studentId,
+      amount,
+      due_date: input.dueDate || null,
+    });
+    if (error) {
+      setFeeStatus((s) => ({ ...s, [studentId]: "Error: " + error.message }));
+      return;
+    }
+    setFeeInputs((s) => ({ ...s, [studentId]: { amount: "", dueDate: "" } }));
+    setFeeStatus((s) => ({ ...s, [studentId]: "" }));
+    const { data } = await supabase.from("fees").select("*").eq("student_id", studentId).order("due_date");
+    setStudentFees(data || []);
+  }
+
+  async function markFeePaid(feeId, studentId) {
+    await supabase.from("fees").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", feeId);
+    const { data } = await supabase.from("fees").select("*").eq("student_id", studentId).order("due_date");
+    setStudentFees(data || []);
   }
 
   async function grantSubscription(student) {
@@ -267,27 +307,67 @@ export default function ManageUsers() {
           <h2 className="font-display text-xl font-bold mb-2">All students</h2>
           <p className="text-sm text-ink/60 mb-4">
             Grant free access to unlock videos, tests and live classes for a student without
-            a Razorpay payment — useful for testing, trials, or offline-paid students.
+            a Razorpay payment, or manage their fee records — useful for testing, trials, or offline-paid students.
           </p>
           <div className="space-y-3">
             {students.length === 0 && <EmptyState icon="🎓" title="No approved students yet" />}
             {students.map((s) => (
-              <div key={s.id} className="card p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">{titleCase(s.full_name)} <span className="text-xs text-ink/50 font-normal">— Class {s.class_level} · {s.phone}</span></p>
-                  <p className="text-xs mt-1">
+              <div key={s.id} className="card p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-semibold">{titleCase(s.full_name)} <span className="text-xs text-ink/50 font-normal">— Class {s.class_level} · {s.phone}</span></p>
+                    <p className="text-xs mt-1">
+                      {s.subEndsAt ? (
+                        <span className="text-leaf font-semibold">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>
+                      ) : (
+                        <span className="text-ink/50">No active subscription</span>
+                      )}
+                    </p>
+                    {subStatus[s.id] && <div className="mt-1"><StatusPill tone={subStatus[s.id].startsWith("Error") ? "error" : "info"}>{subStatus[s.id]}</StatusPill></div>}
+                  </div>
+                  <div className="flex items-center gap-2">
                     {s.subEndsAt ? (
-                      <span className="text-leaf font-semibold">Active until {new Date(s.subEndsAt).toLocaleDateString()}</span>
+                      <button onClick={() => revokeSubscription(s)} className="btn-secondary text-sm py-1.5">Revoke access</button>
                     ) : (
-                      <span className="text-ink/50">No active subscription</span>
+                      <button onClick={() => grantSubscription(s)} className="btn-primary text-sm py-1.5">Grant free access</button>
                     )}
-                  </p>
-                  {subStatus[s.id] && <div className="mt-1"><StatusPill tone={subStatus[s.id].startsWith("Error") ? "error" : "info"}>{subStatus[s.id]}</StatusPill></div>}
+                    <button onClick={() => toggleFees(s.id)} className="btn-secondary text-sm py-1.5 whitespace-nowrap">
+                      {expandedFeesStudent === s.id ? "Hide fees ▲" : "Manage fees ▼"}
+                    </button>
+                  </div>
                 </div>
-                {s.subEndsAt ? (
-                  <button onClick={() => revokeSubscription(s)} className="btn-secondary text-sm py-1.5">Revoke access</button>
-                ) : (
-                  <button onClick={() => grantSubscription(s)} className="btn-primary text-sm py-1.5">Grant free access</button>
+
+                {expandedFeesStudent === s.id && (
+                  <div className="mt-4 pt-4 border-t border-line">
+                    {studentFees.length === 0 && <p className="text-sm text-ink/50 mb-3">No fee records yet.</p>}
+                    {studentFees.map((f) => (
+                      <div key={f.id} className="flex items-center justify-between text-sm py-2 border-b border-line last:border-0">
+                        <span>₹{f.amount} {f.due_date ? `— due ${new Date(f.due_date).toLocaleDateString()}` : ""}</span>
+                        {f.status === "paid" ? (
+                          <span className="text-leaf font-semibold text-xs">Paid</span>
+                        ) : (
+                          <button onClick={() => markFeePaid(f.id, s.id)} className="text-xs text-clay font-semibold">Mark as paid</button>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex gap-2 mt-3">
+                      <input
+                        type="number"
+                        placeholder="Amount (₹)"
+                        className="input-field text-sm py-1.5 w-32"
+                        value={feeInputs[s.id]?.amount || ""}
+                        onChange={(e) => setFeeInputs((inp) => ({ ...inp, [s.id]: { ...inp[s.id], amount: e.target.value } }))}
+                      />
+                      <input
+                        type="date"
+                        className="input-field text-sm py-1.5 w-40"
+                        value={feeInputs[s.id]?.dueDate || ""}
+                        onChange={(e) => setFeeInputs((inp) => ({ ...inp, [s.id]: { ...inp[s.id], dueDate: e.target.value } }))}
+                      />
+                      <button onClick={() => addFee(s.id)} className="btn-primary text-sm py-1.5">Add fee</button>
+                    </div>
+                    {feeStatus[s.id] && <div className="mt-2"><StatusPill tone={feeStatus[s.id].startsWith("Error") ? "error" : "info"}>{feeStatus[s.id]}</StatusPill></div>}
+                  </div>
                 )}
               </div>
             ))}

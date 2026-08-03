@@ -12,7 +12,7 @@ import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
-const TABS = ["overview", "attendance", "assignments", "tests", "analytics", "doubts"];
+const TABS = ["overview", "attendance", "assignments", "tests", "remarks", "analytics", "doubts"];
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -47,6 +47,12 @@ export default function TeacherDashboard() {
   // Doubts
   const [openDoubts, setOpenDoubts] = useState([]);
   const [responses, setResponses] = useState({});
+
+  // Remarks
+  const [remarkClass, setRemarkClass] = useState("6");
+  const [remarkStudents, setRemarkStudents] = useState([]);
+  const [remarkInputs, setRemarkInputs] = useState({});
+  const [remarkStatus, setRemarkStatus] = useState({});
 
   useEffect(() => {
     async function init() {
@@ -113,6 +119,24 @@ export default function TeacherDashboard() {
     const marks = {};
     (data || []).forEach((s) => { marks[s.id] = "present"; });
     setAttMarks(marks);
+  }
+
+  async function loadStudentsForRemarks() {
+    const { data } = await supabase.from("profiles").select("id, full_name").eq("role", "student").eq("class_level", parseInt(remarkClass, 10)).eq("approved", true).order("full_name");
+    setRemarkStudents(data || []);
+  }
+
+  async function addRemark(studentId) {
+    const remark = (remarkInputs[studentId] || "").trim();
+    if (!remark) return;
+    setRemarkStatus((s) => ({ ...s, [studentId]: "Saving..." }));
+    const { error } = await supabase.from("teacher_remarks").insert({
+      student_id: studentId,
+      teacher_id: session.user.id,
+      remark,
+    });
+    setRemarkStatus((s) => ({ ...s, [studentId]: error ? "Error: " + error.message : "Added." }));
+    if (!error) setRemarkInputs((s) => ({ ...s, [studentId]: "" }));
   }
 
   async function saveAttendance() {
@@ -211,7 +235,11 @@ export default function TeacherDashboard() {
         <Tabs
           tabs={TABS}
           active={tab}
-          onChange={(t) => { setTab(t); if (t === "attendance") loadStudentsForAttendance(); }}
+          onChange={(t) => {
+            setTab(t);
+            if (t === "attendance") loadStudentsForAttendance();
+            if (t === "remarks") loadStudentsForRemarks();
+          }}
         />
 
         {tab === "overview" && (
@@ -348,6 +376,35 @@ export default function TeacherDashboard() {
             <button type="button" onClick={addQuestion} className="btn-secondary text-sm">+ Add question</button>
             <button disabled={saving} className="btn-primary w-full">{saving ? "Saving..." : "Create test"}</button>
           </form>
+        )}
+
+        {tab === "remarks" && (
+          <div>
+            <div className="flex gap-3 mb-4">
+              <select className="input-field w-40" value={remarkClass} onChange={(e) => setRemarkClass(e.target.value)}>
+                {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+              </select>
+              <button onClick={loadStudentsForRemarks} className="btn-secondary text-sm">Load students</button>
+            </div>
+            <div className="space-y-3">
+              {remarkStudents.length === 0 && <EmptyState icon="📝" title="No students loaded" subtitle="Pick a class and load its students to add a remark." />}
+              {remarkStudents.map((s) => (
+                <div key={s.id} className="card p-4">
+                  <p className="font-medium mb-2">{titleCase(s.full_name)}</p>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Write a remark visible to this student's parent..."
+                      className="input-field text-sm"
+                      value={remarkInputs[s.id] || ""}
+                      onChange={(e) => setRemarkInputs((r) => ({ ...r, [s.id]: e.target.value }))}
+                    />
+                    <button onClick={() => addRemark(s.id)} className="btn-primary text-sm py-1.5 whitespace-nowrap">Add remark</button>
+                  </div>
+                  {remarkStatus[s.id] && <div className="mt-2"><StatusPill tone={remarkStatus[s.id].startsWith("Error") ? "error" : "info"}>{remarkStatus[s.id]}</StatusPill></div>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {tab === "analytics" && (

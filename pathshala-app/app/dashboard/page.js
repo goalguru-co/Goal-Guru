@@ -177,18 +177,18 @@ export default function DashboardPage() {
         )}
 
         {/* Quick actions */}
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-3 mb-8">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-8 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-none">
           {QUICK_ACTIONS.map((qa) => (
             <button
               key={qa.key}
               onClick={() => setTab(qa.key)}
               style={tab === qa.key ? { background: `linear-gradient(135deg, ${qa.color}, #06B6D4)`, borderColor: qa.color } : {}}
-              className={`flex flex-col items-center justify-center gap-1 py-4 rounded-xl border text-xs font-medium transition-all duration-300 ${
-                tab === qa.key ? "text-white shadow-glow scale-[1.03]" : "bg-white border-line text-ink/70 hover:border-clay/50 hover:-translate-y-0.5"
+              className={`flex items-center gap-2 pl-2 pr-4 py-2 rounded-full border text-sm font-semibold whitespace-nowrap shrink-0 transition-all duration-300 ${
+                tab === qa.key ? "text-white shadow-glow" : "bg-white border-line text-ink/70 hover:border-clay/50 hover:-translate-y-0.5"
               }`}
             >
               <span
-                className="text-lg w-8 h-8 flex items-center justify-center rounded-full"
+                className="text-base w-7 h-7 flex items-center justify-center rounded-full shrink-0"
                 style={{ background: tab === qa.key ? "rgba(255,255,255,0.25)" : `${qa.color}1A` }}
               >
                 {qa.icon}

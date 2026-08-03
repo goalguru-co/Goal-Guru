@@ -262,3 +262,12 @@ a.card:hover, button.card:hover {
 .float-el {
   animation: float 5s ease-in-out infinite;
 }
+
+/* hides scrollbar for horizontally-scrollable rows (e.g. tab pills) while keeping scroll functional */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

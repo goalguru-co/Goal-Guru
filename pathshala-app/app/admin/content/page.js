@@ -14,6 +14,7 @@ const CONTENT_TABS = [
   { key: "video", label: "Video lecture" },
   { key: "live", label: "Live class" },
   { key: "material", label: "Study material" },
+  { key: "ptm", label: "PTM schedule" },
 ];
 
 export default function ManageContent() {
@@ -26,6 +27,13 @@ export default function ManageContent() {
   const [videoForm, setVideoForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "" });
   const [liveForm, setLiveForm] = useState({ classLevel: "6", subject: "", title: "", youtubeId: "", scheduledDate: "", scheduledTime: "" });
   const [materialForm, setMaterialForm] = useState({ classLevel: "6", subject: "", title: "", fileUrl: "" });
+  const [ptmForm, setPtmForm] = useState({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "" });
+  const [ptmList, setPtmList] = useState([]);
+
+  async function loadPtm() {
+    const { data } = await supabase.from("ptm_schedule").select("*").order("scheduled_at", { ascending: false });
+    setPtmList(data || []);
+  }
 
   useEffect(() => {
     async function init() {
@@ -37,6 +45,7 @@ export default function ManageContent() {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
       if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
       setSession(session);
+      loadPtm();
     }
     init();
   }, [router]);
@@ -95,6 +104,24 @@ export default function ManageContent() {
     });
     setStatus(error ? "Error: " + error.message : "Study material added.");
     if (!error) setMaterialForm({ ...materialForm, subject: "", title: "", fileUrl: "" });
+    setSaving(false);
+  }
+
+  async function submitPtm(e) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setStatus("Saving PTM...");
+    const { error } = await supabase.from("ptm_schedule").insert({
+      class_level: ptmForm.classLevel ? parseInt(ptmForm.classLevel, 10) : null,
+      scheduled_at: new Date(`${ptmForm.scheduledDate}T${ptmForm.scheduledTime || "00:00"}`).toISOString(),
+      notes: ptmForm.notes.trim(),
+    });
+    setStatus(error ? "Error: " + error.message : "PTM scheduled.");
+    if (!error) {
+      setPtmForm({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "" });
+      loadPtm();
+    }
     setSaving(false);
   }
 
@@ -170,6 +197,43 @@ export default function ManageContent() {
             </Field>
             <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add study material"}</button>
           </form>
+        )}
+
+        {tab === "ptm" && (
+          <div className="space-y-6">
+            <form onSubmit={submitPtm} className="card p-6 space-y-4">
+              <Field label="Class (leave blank for all classes)">
+                <select className="input-field" value={ptmForm.classLevel} onChange={(e) => setPtmForm({ ...ptmForm, classLevel: e.target.value })}>
+                  <option value="">All classes</option>
+                  {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+                </select>
+              </Field>
+              <Field label="Date & time">
+                <div className="flex gap-3">
+                  <input required type="date" className="input-field" value={ptmForm.scheduledDate} onChange={(e) => setPtmForm({ ...ptmForm, scheduledDate: e.target.value })} />
+                  <input required type="time" className="input-field" value={ptmForm.scheduledTime} onChange={(e) => setPtmForm({ ...ptmForm, scheduledTime: e.target.value })} />
+                </div>
+              </Field>
+              <Field label="Notes (venue, agenda, etc.)">
+                <textarea required className="input-field" rows={3} value={ptmForm.notes} onChange={(e) => setPtmForm({ ...ptmForm, notes: e.target.value })} />
+              </Field>
+              <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Schedule PTM"}</button>
+            </form>
+
+            <div>
+              <p className="label-eyebrow mb-3">Scheduled meetings</p>
+              <div className="space-y-3">
+                {ptmList.length === 0 && <p className="text-sm text-ink/50">No meetings scheduled yet.</p>}
+                {ptmList.map((p) => (
+                  <div key={p.id} className="card p-4">
+                    <p className="label-eyebrow mb-1">{p.class_level ? `Class ${p.class_level}` : "All classes"}</p>
+                    <p className="font-semibold">{new Date(p.scheduled_at).toLocaleString()}</p>
+                    {p.notes && <p className="text-sm text-ink/60 mt-1">{p.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {status && <div className="mt-4"><StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill></div>}

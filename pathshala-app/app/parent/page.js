@@ -23,6 +23,7 @@ export default function ParentDashboard() {
   const [ptm, setPtm] = useState([]);
   const [videoViewCount, setVideoViewCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [expandedStat, setExpandedStat] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -96,7 +97,7 @@ export default function ParentDashboard() {
                 {children.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedChild(c)}
+                    onClick={() => { setSelectedChild(c); setExpandedStat(null); }}
                     className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-all ${
                       selectedChild?.id === c.id ? "bg-clay text-white border-clay shadow-glow" : "border-line hover:border-clay/40"
                     }`}
@@ -109,9 +110,31 @@ export default function ParentDashboard() {
 
             <p className="text-ink/60 mb-6">Showing data for <span className="font-semibold text-ink">{titleCase(selectedChild?.full_name)}</span> — Class {selectedChild?.class_level}</p>
 
-            <div className="grid md:grid-cols-4 gap-4 mb-6">
-              <StatCard label="Attendance" value={attendancePct !== null ? `${attendancePct}%` : "—"} icon="📅" accent="clay" />
-              <StatCard label="Avg. test score" value={avgScorePct !== null ? `${avgScorePct}%` : "—"} icon="🎯" accent="leaf" />
+            <div className="grid md:grid-cols-4 gap-4 mb-4">
+              <button
+                onClick={() => setExpandedStat(expandedStat === "attendance" ? null : "attendance")}
+                className={`card p-5 text-left transition-all ${expandedStat === "attendance" ? "border-clay ring-2 ring-clay/20" : ""}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="label-eyebrow">Attendance</p>
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm bg-clay/10">📅</span>
+                </div>
+                <p className="font-display text-2xl md:text-3xl font-extrabold text-ink">{attendancePct !== null ? `${attendancePct}%` : "—"}</p>
+                <p className="text-xs text-clay font-semibold mt-1">{expandedStat === "attendance" ? "Hide day-by-day ▲" : "View day-by-day ▼"}</p>
+              </button>
+
+              <button
+                onClick={() => setExpandedStat(expandedStat === "scores" ? null : "scores")}
+                className={`card p-5 text-left transition-all ${expandedStat === "scores" ? "border-clay ring-2 ring-clay/20" : ""}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="label-eyebrow">Avg. test score</p>
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm bg-leaf/10">🎯</span>
+                </div>
+                <p className="font-display text-2xl md:text-3xl font-extrabold text-ink">{avgScorePct !== null ? `${avgScorePct}%` : "—"}</p>
+                <p className="text-xs text-clay font-semibold mt-1">{expandedStat === "scores" ? "Hide breakdown ▲" : "View breakdown ▼"}</p>
+              </button>
+
               <div className="card p-5">
                 <p className="label-eyebrow">Lectures watched</p>
                 <p className="font-display text-2xl md:text-3xl font-extrabold text-ink mt-1">{videoViewCount}</p>
@@ -120,24 +143,48 @@ export default function ParentDashboard() {
               <StatCard label="Homework pending" value={submissions.filter((s) => s.status === "missing").length} icon="📝" accent="spark" />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
-              <div className="card p-5">
-                <p className="label-eyebrow mb-3">Test scores &amp; rankings</p>
+            {expandedStat === "attendance" && (
+              <div className="card p-5 mb-6">
+                <p className="label-eyebrow mb-3">Day-by-day attendance (last {attendance.length})</p>
+                {attendance.length === 0 && <p className="text-sm text-ink/50">No attendance recorded yet.</p>}
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {attendance.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between text-sm px-3 py-2 rounded-lg bg-ink/[0.02]">
+                      <span>{new Date(a.class_date).toLocaleDateString()}</span>
+                      <span className={`font-semibold capitalize text-xs px-2 py-0.5 rounded-full ${
+                        a.status === "present" ? "bg-leaf/10 text-leaf" : a.status === "late" ? "bg-saffron/10 text-saffron" : "bg-spark/10 text-spark"
+                      }`}>
+                        {a.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {expandedStat === "scores" && (
+              <div className="card p-5 mb-6">
+                <p className="label-eyebrow mb-3">Test score breakdown</p>
                 {attempts.length === 0 && <p className="text-sm text-ink/50">No tests taken yet.</p>}
                 {attempts.map((a) => (
                   <div key={a.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                     <span>{a.tests?.title || "Test"} ({a.tests?.subject})</span>
-                    <span className="font-semibold">{a.score}/{a.total}</span>
+                    <span className="font-semibold">{a.score}/{a.total} {a.total ? `— ${Math.round((a.score / a.total) * 100)}%` : ""}</span>
                   </div>
                 ))}
               </div>
+            )}
+
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
               <div className="card p-5">
                 <p className="label-eyebrow mb-3">Homework status</p>
                 {submissions.length === 0 && <p className="text-sm text-ink/50">No assignments yet.</p>}
                 {submissions.map((s) => (
                   <div key={s.id} className="flex justify-between text-sm py-2 border-b border-line last:border-0">
                     <span>{s.assignments?.title}</span>
-                    <span className="capitalize font-semibold">{s.status}</span>
+                    <span className="capitalize font-semibold">
+                      {s.status === "graded" && s.grade ? `Graded — ${s.grade}` : s.status}
+                    </span>
                   </div>
                 ))}
               </div>
