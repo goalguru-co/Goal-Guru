@@ -1,16 +1,24 @@
 import { badgeForPoints } from "@/components/Badge";
 
 const STOPWORDS = new Set(["a", "an", "the", "is", "are", "do", "does", "did", "i", "my", "me", "to", "of", "for", "how", "what", "when", "where", "can", "will", "on", "in", "at", "it", "this", "that", "have", "has", "am", "was", "were"]);
+const GREETINGS = new Set(["hi", "hello", "hey", "hii", "hiya", "yo", "sup", "hlo"]);
 
 function normalize(text) {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Score = (number of matched significant words) * (how complete the match is).
+// This deliberately rewards longer, more specific phrases over short generic ones —
+// e.g. "test score" (2/2 words matched) scores higher than "how to test" (which
+// reduces to just the single word "test" once stopwords are stripped), so a specific
+// data question doesn't lose to a vague FAQ that happens to share one word.
 function scorePhrase(phrase, messageWords) {
   const words = normalize(phrase).split(" ").filter((w) => w && !STOPWORDS.has(w));
   if (words.length === 0) return 0;
   const matched = words.filter((w) => messageWords.includes(w)).length;
-  return matched / words.length;
+  const ratio = matched / words.length;
+  if (matched === 0 || ratio < 0.6) return 0;
+  return matched * ratio;
 }
 
 function scoreKeywords(keywordsStr, messageWords) {
@@ -250,16 +258,23 @@ const ROLE_INTENT_BUILDERS = {
   admin: adminIntents,
 };
 
-export async function getExampleQuestions(role, faqs) {
+export async function getExampleQuestions(ctx) {
+  const { role, faqs } = ctx;
   const roleFaqs = faqs.filter((f) => !f.role || f.role === role).slice(0, 3).map((f) => f.question);
   const builder = ROLE_INTENT_BUILDERS[role];
-  const dataQs = builder ? (await builder({})).slice(0, 3).map((i) => i.question) : [];
+  const dataQs = builder ? (await builder(ctx)).slice(0, 3).map((i) => i.question) : [];
   return [...dataQs, ...roleFaqs].slice(0, 5);
 }
 
 export async function getChatbotReply(message, ctx) {
   const { role, faqs } = ctx;
-  const messageWords = normalize(message).split(" ");
+  const normalized = normalize(message);
+
+  if (GREETINGS.has(normalized)) {
+    return "Hey! Ask me about your account (attendance, scores, assignments...) or how to use a feature — or tap Suggestions below for ideas.";
+  }
+
+  const messageWords = normalized.split(" ");
 
   // Build candidate list: FAQs (role-matched) + role-specific data intents
   const candidates = [];
@@ -277,11 +292,10 @@ export async function getChatbotReply(message, ctx) {
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
 
-  if (best && best.score >= 0.6) {
+  if (best && best.score >= 1) {
     return best.answer || (await best.handler());
   }
 
-  const normalized = normalize(message);
   const hitBoundary = HOMEWORK_BOUNDARY_WORDS.some((w) => normalized.includes(w));
   if (hitBoundary) {
     return "I can't solve or explain subject questions for you — that's exactly what the Doubts tab is for! Ask your teacher there and they'll help you understand it properly. I can help with things like your attendance, scores, assignments, and how to use the app.";

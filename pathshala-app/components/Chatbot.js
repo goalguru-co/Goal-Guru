@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getChatbotReply, getExampleQuestions } from "@/lib/chatbotEngine";
 
 const ROLE_LABEL = { student: "student", parent: "parent", teacher: "teacher", admin: "admin" };
+const HIDDEN_PATHS = ["/", "/login", "/signup"];
 
 export default function Chatbot() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -56,13 +59,16 @@ export default function Chatbot() {
       const greeting = s
         ? `Hi ${profileData?.full_name?.split(" ")[0] || "there"}! I can help with your account info or how to use Goal Guru. What do you need?`
         : "Hi! Log in first and I can answer questions about your account — or ask me how to use Goal Guru.";
-      setMessages([{ from: "bot", text: greeting }]);
+
+      const initialMessages = [{ from: "bot", text: greeting }];
 
       if (role) {
-        const ex = await getExampleQuestions(role, faqData || []);
+        const ex = await getExampleQuestions({ role, faqs: faqData || [], session: s, profile: profileData, linkedChild: child, supabase });
         setExamples(ex);
+        if (ex.length > 0) initialMessages.push({ from: "bot", type: "suggestions", options: ex });
       }
 
+      setMessages(initialMessages);
       setReady(true);
     }
     init();
@@ -80,21 +86,33 @@ export default function Chatbot() {
     setThinking(true);
 
     let reply;
-    if (!session) {
-      reply = "Please log in first — then I can look up your account details.";
-    } else {
-      reply = await getChatbotReply(trimmed, {
-        role: profile?.role,
-        session,
-        profile,
-        linkedChild,
-        faqs,
-      });
+    try {
+      if (!session) {
+        reply = "Please log in first — then I can look up your account details.";
+      } else {
+        reply = await getChatbotReply(trimmed, {
+          role: profile?.role,
+          session,
+          profile,
+          linkedChild,
+          faqs,
+          supabase,
+        });
+      }
+    } catch (err) {
+      reply = "Something went wrong looking that up — please try again in a moment.";
     }
 
     setMessages((m) => [...m, { from: "bot", text: reply }]);
     setThinking(false);
   }
+
+  function showSuggestions() {
+    if (examples.length === 0) return;
+    setMessages((m) => [...m, { from: "bot", type: "suggestions", options: examples }]);
+  }
+
+  if (HIDDEN_PATHS.includes(pathname)) return null;
 
   return (
     <>
@@ -120,49 +138,56 @@ export default function Chatbot() {
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] text-sm px-3 py-2 rounded-2xl ${
-                    m.from === "user" ? "bg-clay text-white rounded-br-sm" : "bg-white border border-line text-ink rounded-bl-sm"
-                  }`}
-                >
-                  {m.text}
+            {messages.map((m, i) =>
+              m.type === "suggestions" ? (
+                <div key={i} className="space-y-1.5">
+                  {m.options.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => send(q)}
+                      className="block w-full text-left text-xs px-3 py-2 rounded-xl border border-line hover:border-clay/40 text-ink/70"
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            ))}
+              ) : (
+                <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[85%] text-sm px-3 py-2 rounded-2xl ${
+                      m.from === "user" ? "bg-clay text-white rounded-br-sm" : "bg-white border border-line text-ink rounded-bl-sm"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              )
+            )}
             {thinking && (
               <div className="flex justify-start">
                 <div className="bg-white border border-line rounded-2xl rounded-bl-sm px-3 py-2 text-sm text-ink/40">Thinking...</div>
               </div>
             )}
-            {!thinking && messages.length <= 1 && examples.length > 0 && (
-              <div className="space-y-1.5 pt-2">
-                {examples.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => send(q)}
-                    className="block w-full text-left text-xs px-3 py-2 rounded-xl border border-line hover:border-clay/40 text-ink/70"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          <form
-            onSubmit={(e) => { e.preventDefault(); send(); }}
-            className="p-3 border-t border-line bg-white/60 flex gap-2"
-          >
-            <input
-              className="input-field text-sm py-2"
-              placeholder="Ask a question..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
-            <button type="submit" disabled={thinking} className="btn-primary text-sm py-2 px-4 shrink-0">Send</button>
-          </form>
+          <div className="px-3 pt-2 border-t border-line bg-white/60">
+            <button
+              onClick={showSuggestions}
+              disabled={examples.length === 0}
+              className="text-xs font-semibold text-clay disabled:text-ink/30 mb-2"
+            >
+              💡 Show suggestions
+            </button>
+            <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 pb-3">
+              <input
+                className="input-field text-sm py-2"
+                placeholder="Ask a question..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button type="submit" disabled={thinking} className="btn-primary text-sm py-2 px-4 shrink-0">Send</button>
+            </form>
+          </div>
         </div>
       )}
     </>
