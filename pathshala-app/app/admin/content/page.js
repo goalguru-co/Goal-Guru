@@ -15,6 +15,7 @@ const CONTENT_TABS = [
   { key: "live", label: "Live class" },
   { key: "material", label: "Study material" },
   { key: "ptm", label: "PTM schedule" },
+  { key: "faqs", label: "Chatbot FAQs" },
 ];
 
 export default function ManageContent() {
@@ -29,10 +30,17 @@ export default function ManageContent() {
   const [materialForm, setMaterialForm] = useState({ classLevel: "6", subject: "", title: "", fileUrl: "" });
   const [ptmForm, setPtmForm] = useState({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "" });
   const [ptmList, setPtmList] = useState([]);
+  const [faqForm, setFaqForm] = useState({ role: "", keywords: "", question: "", answer: "" });
+  const [faqList, setFaqList] = useState([]);
 
   async function loadPtm() {
     const { data } = await supabase.from("ptm_schedule").select("*").order("scheduled_at", { ascending: false });
     setPtmList(data || []);
+  }
+
+  async function loadFaqs() {
+    const { data } = await supabase.from("chatbot_faqs").select("*").order("created_at", { ascending: false });
+    setFaqList(data || []);
   }
 
   useEffect(() => {
@@ -46,6 +54,7 @@ export default function ManageContent() {
       if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
       setSession(session);
       loadPtm();
+      loadFaqs();
     }
     init();
   }, [router]);
@@ -123,6 +132,30 @@ export default function ManageContent() {
       loadPtm();
     }
     setSaving(false);
+  }
+
+  async function submitFaq(e) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setStatus("Saving FAQ...");
+    const { error } = await supabase.from("chatbot_faqs").insert({
+      role: faqForm.role || null,
+      keywords: faqForm.keywords.trim(),
+      question: faqForm.question.trim(),
+      answer: faqForm.answer.trim(),
+    });
+    setStatus(error ? "Error: " + error.message : "FAQ added.");
+    if (!error) {
+      setFaqForm({ role: "", keywords: "", question: "", answer: "" });
+      loadFaqs();
+    }
+    setSaving(false);
+  }
+
+  async function deleteFaq(id) {
+    await supabase.from("chatbot_faqs").delete().eq("id", id);
+    loadFaqs();
   }
 
   return (
@@ -229,6 +262,54 @@ export default function ManageContent() {
                     <p className="label-eyebrow mb-1">{p.class_level ? `Class ${p.class_level}` : "All classes"}</p>
                     <p className="font-semibold">{new Date(p.scheduled_at).toLocaleString()}</p>
                     {p.notes && <p className="text-sm text-ink/60 mt-1">{p.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "faqs" && (
+          <div className="space-y-6">
+            <p className="text-sm text-ink/60">
+              These power the chatbot's "how do I..." answers. <code className="bg-ink/5 px-1.5 py-0.5 rounded font-mono text-xs">Keywords</code> should
+              be a comma-separated list of words/phrases the chatbot matches against a user's message.
+              Leave role blank to show it to everyone.
+            </p>
+            <form onSubmit={submitFaq} className="card p-6 space-y-4">
+              <Field label="Visible to">
+                <select className="input-field" value={faqForm.role} onChange={(e) => setFaqForm({ ...faqForm, role: e.target.value })}>
+                  <option value="">Everyone</option>
+                  <option value="student">Students</option>
+                  <option value="parent">Parents</option>
+                  <option value="teacher">Teachers</option>
+                  <option value="admin">Admins</option>
+                </select>
+              </Field>
+              <Field label="Keywords (comma-separated)">
+                <input required placeholder="e.g. submit assignment, how to submit, upload homework" className="input-field" value={faqForm.keywords} onChange={(e) => setFaqForm({ ...faqForm, keywords: e.target.value })} />
+              </Field>
+              <Field label="Example question (shown as a suggestion)">
+                <input required placeholder="How do I submit an assignment?" className="input-field" value={faqForm.question} onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })} />
+              </Field>
+              <Field label="Answer">
+                <textarea required className="input-field" rows={3} value={faqForm.answer} onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })} />
+              </Field>
+              <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add FAQ"}</button>
+            </form>
+
+            <div>
+              <p className="label-eyebrow mb-3">All FAQs ({faqList.length})</p>
+              <div className="space-y-3">
+                {faqList.map((f) => (
+                  <div key={f.id} className="card p-4 flex items-start justify-between gap-4">
+                    <div>
+                      <p className="label-eyebrow mb-1">{f.role ? f.role : "Everyone"}</p>
+                      <p className="font-semibold">{f.question}</p>
+                      <p className="text-sm text-ink/60 mt-1">{f.answer}</p>
+                      <p className="text-xs text-ink/40 mt-1">Keywords: {f.keywords}</p>
+                    </div>
+                    <button onClick={() => deleteFaq(f.id)} className="text-xs text-spark font-semibold whitespace-nowrap">Delete</button>
                   </div>
                 ))}
               </div>

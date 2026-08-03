@@ -1,4 +1,5 @@
 import "./globals.css";
+import Chatbot from "@/components/Chatbot";
 
 export const metadata = {
   title: "Goal Guru — Classes 6 to 10",
@@ -15,7 +16,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="font-body min-h-screen">{children}</body>
+      <body className="font-body min-h-screen">
+        {children}
+        <Chatbot />
+      </body>
     </html>
   );
 }
