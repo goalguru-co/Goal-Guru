@@ -40,7 +40,6 @@ export default function SubscribePage() {
     const res = await fetch("/api/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: PRICE_PER_CLASS_PAISE }),
     });
     const order = await res.json();
 
@@ -60,12 +59,11 @@ export default function SubscribePage() {
         setStatus("Verifying payment...");
         const verifyRes = await fetch("/api/verify-payment", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
           body: JSON.stringify({
             ...response,
             studentId: session.user.id,
             classLevel: profile?.class_level,
-            amount: PRICE_PER_CLASS_PAISE,
           }),
         });
         const result = await verifyRes.json();

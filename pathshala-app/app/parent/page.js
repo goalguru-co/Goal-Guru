@@ -31,6 +31,14 @@ export default function ParentDashboard() {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
+
+      const { data: callerProfile } = await supabase.from("profiles").select("approved").eq("id", session.user.id).single();
+      if (!callerProfile?.approved) {
+        await supabase.auth.signOut();
+        router.push("/login?notice=pending-approval");
+        return;
+      }
+
       setSession(session);
 
       const { data: links } = await supabase

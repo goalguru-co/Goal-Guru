@@ -7,6 +7,9 @@ export default function TestPlayer({ test, studentId, onDone }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const questions = test.questions || [];
   const mcqQuestions = questions.filter((q) => q.type !== "short");
@@ -22,35 +25,26 @@ export default function TestPlayer({ test, studentId, onDone }) {
   }
 
   async function submit() {
-    let correctCount = 0;
-    questions.forEach((q, i) => {
-      if (q.type !== "short" && answers[i] === q.correct) correctCount += 1;
+    setSubmitting(true);
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/complete-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ testId: test.id, answers }),
     });
-    setScore(correctCount);
+    const result = await res.json();
+
+    if (result.error) {
+      setSubmitError(result.error);
+      setSubmitting(false);
+      return;
+    }
+
+    setScore(result.score);
+    setTotal(result.total);
     setSubmitted(true);
-
-    await supabase.from("test_attempts").insert({
-      test_id: test.id,
-      student_id: studentId,
-      answers,
-      score: correctCount,
-      total: mcqQuestions.length,
-    });
-
-    // simple gamification: +10 points per correct MCQ answer
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points, streak_count")
-      .eq("id", studentId)
-      .single();
-
-    await supabase
-      .from("profiles")
-      .update({
-        points: (profile?.points || 0) + correctCount * 10,
-        streak_count: (profile?.streak_count || 0) + 1,
-      })
-      .eq("id", studentId);
+    setSubmitting(false);
 
     if (onDone) onDone();
   }
@@ -61,7 +55,7 @@ export default function TestPlayer({ test, studentId, onDone }) {
         <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-leaf/10 blur-2xl" />
         <p className="label-eyebrow mb-2 relative">Result</p>
         <p className="font-display text-4xl font-extrabold text-gradient relative">
-          {score} / {mcqQuestions.length}
+          {score} / {total}
         </p>
         <p className="text-sm text-leaf font-semibold mt-2 relative">+{score * 10} points added to your profile 🎉</p>
         {shortQuestions.length > 0 && (
@@ -121,7 +115,8 @@ export default function TestPlayer({ test, studentId, onDone }) {
           )}
         </div>
       ))}
-      <button onClick={submit} className="btn-primary w-full">Submit test</button>
+      <button onClick={submit} disabled={submitting} className="btn-primary w-full">{submitting ? "Submitting..." : "Submit test"}</button>
+      {submitError && <p className="text-sm text-spark text-center">{submitError}</p>}
     </div>
   );
 }

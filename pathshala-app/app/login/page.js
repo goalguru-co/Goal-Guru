@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,6 +19,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("notice") === "pending-approval") {
+      setError("Your account is still waiting for admin approval.");
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();

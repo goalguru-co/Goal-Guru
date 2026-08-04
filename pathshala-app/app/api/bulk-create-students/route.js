@@ -12,6 +12,21 @@ function randomPassword() {
 }
 
 export async function POST(req) {
+  const token = (req.headers.get("authorization") || "").replace("Bearer ", "");
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+  if (userError || !user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const { data: callerProfile } = await supabaseAdmin.from("profiles").select("role").eq("id", user.id).single();
+  if (callerProfile?.role !== "admin") {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   const { students } = await req.json();
 
   if (!Array.isArray(students) || students.length === 0) {

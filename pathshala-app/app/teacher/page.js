@@ -58,8 +58,15 @@ export default function TeacherDashboard() {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
-      setSession(session);
       const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+
+      if (!profileData?.approved) {
+        await supabase.auth.signOut();
+        router.push("/login?notice=pending-approval");
+        return;
+      }
+
+      setSession(session);
       setProfile(profileData);
 
       const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);

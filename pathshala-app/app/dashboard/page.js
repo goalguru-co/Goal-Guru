@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const [doubtForm, setDoubtForm] = useState({ subject: "", question: "" });
   const [loading, setLoading] = useState(true);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const [assignmentError, setAssignmentError] = useState({});
   const [submittingDoubt, setSubmittingDoubt] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState({});
   const [weeklyRank, setWeeklyRank] = useState(null);
@@ -68,9 +69,16 @@ export default function DashboardPage() {
       router.push("/login");
       return;
     }
-    setSession(session);
 
     const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+
+    if (!profileData?.approved) {
+      await supabase.auth.signOut();
+      router.push("/login?notice=pending-approval");
+      return;
+    }
+
+    setSession(session);
     setProfile(profileData);
     const classLevel = profileData?.class_level;
 
@@ -124,15 +132,19 @@ export default function DashboardPage() {
     const fileUrl = (submitLinks[assignmentId] || "").trim();
     if (!fileUrl || submittingAssignment) return;
     setSubmittingAssignment(true);
-    await supabase.from("assignment_submissions").insert({
-      assignment_id: assignmentId,
-      student_id: session.user.id,
-      file_url: fileUrl,
-    });
 
-    // gamification: flat points for submitting an assignment on time
-    const { data: profileRow } = await supabase.from("profiles").select("points").eq("id", session.user.id).single();
-    await supabase.from("profiles").update({ points: (profileRow?.points || 0) + ASSIGNMENT_POINTS }).eq("id", session.user.id);
+    const res = await fetch("/api/complete-assignment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ assignmentId, submission: fileUrl }),
+    });
+    const result = await res.json();
+
+    if (result.error) {
+      setAssignmentError((e) => ({ ...e, [assignmentId]: result.error }));
+      setSubmittingAssignment(false);
+      return;
+    }
 
     setSubmitLinks((s) => ({ ...s, [assignmentId]: "" }));
     await loadAll();
@@ -439,6 +451,7 @@ export default function DashboardPage() {
                         />
                         <button onClick={() => submitAssignment(a.id)} disabled={submittingAssignment} className="btn-primary text-sm py-1.5 whitespace-nowrap self-start">{submittingAssignment ? "Submitting..." : "Submit"}</button>
                       </div>
+                      {assignmentError[a.id] && <p className="text-xs text-spark mt-1">{assignmentError[a.id]}</p>}
                     </div>
                   )}
                 </div>

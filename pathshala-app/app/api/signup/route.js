@@ -23,6 +23,13 @@ export async function POST(req) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Signup is a public endpoint — never trust the client to self-assign a role.
+  // Only these three are ever legitimately self-serve; 'admin' must be granted manually.
+  const ALLOWED_SELF_SIGNUP_ROLES = ["student", "parent", "teacher"];
+  if (!ALLOWED_SELF_SIGNUP_ROLES.includes(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+
   // Create the auth user directly via the admin API, marked as already confirmed.
   // This skips Supabase's confirmation-email flow entirely, which is what was
   // hitting the free-tier email rate limit.

@@ -50,8 +50,12 @@ export default function ManageContent() {
         router.push("/login");
         return;
       }
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-      if (profile?.role !== "admin") { router.push(ROLE_HOME[profile?.role] || "/login"); return; }
+      const { data: profile } = await supabase.from("profiles").select("role, approved").eq("id", session.user.id).single();
+      if (profile?.role !== "admin" || !profile?.approved) {
+        await supabase.auth.signOut();
+        router.push(profile?.role && profile?.approved ? (ROLE_HOME[profile.role] || "/login") : "/login?notice=pending-approval");
+        return;
+      }
       setSession(session);
       loadPtm();
       loadFaqs();
