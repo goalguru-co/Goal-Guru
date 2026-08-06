@@ -46,6 +46,7 @@ export default function Navbar({ session, role }) {
       <div className="flex items-center gap-5 text-sm font-semibold">
         {session ? (
           <>
+            <span className="text-ink/50 font-medium hidden sm:inline capitalize">Logged in as {role}</span>
             <Link href={ROLE_HOME[role] || "/dashboard"} className="hover:text-clay transition-colors capitalize">
               {role} home
             </Link>

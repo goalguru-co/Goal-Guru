@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { SUBJECTS } from "@/lib/subjects";
 
 export default function SignupPage() {
   const [role, setRole] = useState("student");
@@ -15,7 +16,7 @@ export default function SignupPage() {
     email: "",
     password: "",
   });
-  const [status, setStatus] = useState({ loading: false, error: "", done: false });
+  const [status, setStatus] = useState({ loading: false, error: "", done: false, childLinked: false });
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -42,11 +43,11 @@ export default function SignupPage() {
     const result = await res.json();
 
     if (result.error) {
-      setStatus({ loading: false, error: result.error, done: false });
+      setStatus({ loading: false, error: result.error, done: false, childLinked: false });
       return;
     }
 
-    setStatus({ loading: false, error: "", done: true });
+    setStatus({ loading: false, error: "", done: true, childLinked: !!result.childLinked });
   }
 
   if (status.done) {
@@ -60,6 +61,13 @@ export default function SignupPage() {
             Your account has been created. An admin needs to approve it before
             you can log in — you'll be notified once that's done.
           </p>
+          {role === "parent" && (
+            <p className={`text-sm mt-4 px-3 py-2 rounded-lg ${status.childLinked ? "bg-leaf/15 text-leaf" : "bg-saffron/15 text-saffron"}`}>
+              {status.childLinked
+                ? "We found and linked your child's account already."
+                : "We couldn't find a matching student account yet — no problem, ask your school admin to link it once your child is enrolled."}
+            </p>
+          )}
           <Link href="/login" className="btn-primary inline-block mt-6">
             Go to login
           </Link>
@@ -117,16 +125,20 @@ export default function SignupPage() {
           {role === "teacher" && (
             <div>
               <label className="text-sm font-semibold text-white/80">Subject you teach</label>
-              <input required className="input-field mt-1" value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="e.g. Mathematics" />
+              <select required className="input-field mt-1" value={form.subject} onChange={(e) => update("subject", e.target.value)}>
+                <option value="">Select a subject</option>
+                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           )}
 
           {role === "parent" && (
             <div>
-              <label className="text-sm font-semibold text-white/80">Child's registered phone number</label>
-              <input required className="input-field mt-1" value={form.childPhone} onChange={(e) => update("childPhone", e.target.value)} />
+              <label className="text-sm font-semibold text-white/80">Child's registered phone number (optional)</label>
+              <input className="input-field mt-1" value={form.childPhone} onChange={(e) => update("childPhone", e.target.value)} />
               <p className="text-xs text-white/50 mt-1">
-                We'll link your account to your child's account automatically if the number matches.
+                We'll link your account to your child's automatically if it matches. Don't have it handy? Leave this
+                blank — your school admin can link it for you afterward.
               </p>
             </div>
           )}

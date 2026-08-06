@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import PageHeader from "@/components/PageHeader";
 import Tabs from "@/components/Tabs";
 import StatusPill from "@/components/StatusPill";
+import { SUBJECTS } from "@/lib/subjects";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
@@ -178,7 +179,10 @@ export default function ManageContent() {
               </select>
             </Field>
             <Field label="Subject">
-              <input required className="input-field" value={videoForm.subject} onChange={(e) => setVideoForm({ ...videoForm, subject: e.target.value })} />
+              <select required className="input-field" value={videoForm.subject} onChange={(e) => setVideoForm({ ...videoForm, subject: e.target.value })}>
+                <option value="">Select subject</option>
+                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </Field>
             <Field label="Title">
               <input required className="input-field" value={videoForm.title} onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })} />
@@ -198,7 +202,10 @@ export default function ManageContent() {
               </select>
             </Field>
             <Field label="Subject">
-              <input required className="input-field" value={liveForm.subject} onChange={(e) => setLiveForm({ ...liveForm, subject: e.target.value })} />
+              <select required className="input-field" value={liveForm.subject} onChange={(e) => setLiveForm({ ...liveForm, subject: e.target.value })}>
+                <option value="">Select subject</option>
+                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </Field>
             <Field label="Title">
               <input required className="input-field" value={liveForm.title} onChange={(e) => setLiveForm({ ...liveForm, title: e.target.value })} />
@@ -224,7 +231,10 @@ export default function ManageContent() {
               </select>
             </Field>
             <Field label="Subject">
-              <input required className="input-field" value={materialForm.subject} onChange={(e) => setMaterialForm({ ...materialForm, subject: e.target.value })} />
+              <select required className="input-field" value={materialForm.subject} onChange={(e) => setMaterialForm({ ...materialForm, subject: e.target.value })}>
+                <option value="">Select subject</option>
+                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </Field>
             <Field label="Title">
               <input required className="input-field" value={materialForm.title} onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })} />

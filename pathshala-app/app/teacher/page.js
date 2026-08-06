@@ -8,6 +8,7 @@ import Tabs from "@/components/Tabs";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
 import StatusPill from "@/components/StatusPill";
+import PerformanceBadge from "@/components/PerformanceBadge";
 import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
@@ -25,20 +26,25 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Attendance
+  const [attView, setAttView] = useState("mark"); // 'mark' | 'history'
   const [attClass, setAttClass] = useState("6");
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
   const [attStudents, setAttStudents] = useState([]);
   const [attMarks, setAttMarks] = useState({});
+  const [historyMonth, setHistoryMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [historyStudents, setHistoryStudents] = useState([]);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Assignment
-  const [assignForm, setAssignForm] = useState({ classLevel: "6", subject: "", title: "", description: "", dueDate: "" });
+  const [assignForm, setAssignForm] = useState({ classLevel: "6", title: "", description: "", dueDate: "" });
   const [pastAssignments, setPastAssignments] = useState([]);
   const [expandedAssignment, setExpandedAssignment] = useState(null);
   const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
   const [gradeInputs, setGradeInputs] = useState({});
 
   // Test creation
-  const [testForm, setTestForm] = useState({ classLevel: "6", subject: "", title: "", scheduledDate: "", scheduledTime: "" });
+  const [testForm, setTestForm] = useState({ classLevel: "6", title: "", scheduledDate: "", scheduledTime: "" });
   const [questions, setQuestions] = useState([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
 
   // Analytics
@@ -51,6 +57,7 @@ export default function TeacherDashboard() {
   // Remarks
   const [remarkClass, setRemarkClass] = useState("6");
   const [remarkStudents, setRemarkStudents] = useState([]);
+  const [studentRemarks, setStudentRemarks] = useState({});
   const [remarkInputs, setRemarkInputs] = useState({});
   const [remarkStatus, setRemarkStatus] = useState({});
 
@@ -74,7 +81,7 @@ export default function TeacherDashboard() {
       const { data: live } = await supabase.from("live_classes").select("*").gte("scheduled_at", startOfDay.toISOString()).lte("scheduled_at", endOfDay.toISOString());
       setTodayLive(live || []);
 
-      const { data: doubts } = await supabase.from("doubts").select("*, profiles!doubts_student_id_fkey(full_name, class_level)").eq("status", "open").order("created_at", { ascending: false });
+      const { data: doubts } = await supabase.from("doubts").select("*, profiles!doubts_student_id_fkey(full_name, class_level)").eq("status", "open").eq("subject", profileData?.subject).order("created_at", { ascending: false });
       setOpenDoubts(doubts || []);
 
       const { data: attempts } = await supabase.from("test_attempts").select("score, total, tests(subject, class_level)");
@@ -128,22 +135,75 @@ export default function TeacherDashboard() {
     setAttMarks(marks);
   }
 
+  function markAll(status) {
+    const marks = {};
+    attStudents.forEach((s) => { marks[s.id] = status; });
+    setAttMarks(marks);
+  }
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    const { data: students } = await supabase.from("profiles").select("id, full_name").eq("role", "student").eq("class_level", parseInt(attClass, 10)).eq("approved", true).order("full_name");
+    setHistoryStudents(students || []);
+
+    const studentIds = (students || []).map((s) => s.id);
+    if (studentIds.length === 0) {
+      setHistoryRecords([]);
+      setHistoryLoading(false);
+      return;
+    }
+
+    const monthStart = `${historyMonth}-01`;
+    const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    const { data: records } = await supabase
+      .from("attendance")
+      .select("student_id, class_date, status")
+      .in("student_id", studentIds)
+      .gte("class_date", monthStart)
+      .lte("class_date", monthEnd)
+      .order("class_date");
+
+    setHistoryRecords(records || []);
+    setHistoryLoading(false);
+  }
+
   async function loadStudentsForRemarks() {
     const { data } = await supabase.from("profiles").select("id, full_name").eq("role", "student").eq("class_level", parseInt(remarkClass, 10)).eq("approved", true).order("full_name");
     setRemarkStudents(data || []);
+
+    const studentIds = (data || []).map((s) => s.id);
+    if (studentIds.length > 0) {
+      const { data: remarks } = await supabase
+        .from("teacher_remarks")
+        .select("*")
+        .in("student_id", studentIds)
+        .order("created_at", { ascending: false });
+      const byStudent = {};
+      (remarks || []).forEach((r) => {
+        if (!byStudent[r.student_id]) byStudent[r.student_id] = [];
+        byStudent[r.student_id].push(r);
+      });
+      setStudentRemarks(byStudent);
+    } else {
+      setStudentRemarks({});
+    }
   }
 
   async function addRemark(studentId) {
     const remark = (remarkInputs[studentId] || "").trim();
     if (!remark) return;
     setRemarkStatus((s) => ({ ...s, [studentId]: "Saving..." }));
-    const { error } = await supabase.from("teacher_remarks").insert({
+    const { data, error } = await supabase.from("teacher_remarks").insert({
       student_id: studentId,
       teacher_id: session.user.id,
       remark,
-    });
+    }).select().single();
     setRemarkStatus((s) => ({ ...s, [studentId]: error ? "Error: " + error.message : "Added." }));
-    if (!error) setRemarkInputs((s) => ({ ...s, [studentId]: "" }));
+    if (!error) {
+      setRemarkInputs((s) => ({ ...s, [studentId]: "" }));
+      setStudentRemarks((s) => ({ ...s, [studentId]: [data, ...(s[studentId] || [])] }));
+    }
   }
 
   async function saveAttendance() {
@@ -168,7 +228,7 @@ export default function TeacherDashboard() {
     setStatus("Saving assignment...");
     const { error } = await supabase.from("assignments").insert({
       class_level: parseInt(assignForm.classLevel, 10),
-      subject: assignForm.subject.trim(),
+      subject: profile?.subject,
       title: assignForm.title.trim(),
       description: assignForm.description.trim(),
       due_date: assignForm.dueDate || null,
@@ -176,7 +236,7 @@ export default function TeacherDashboard() {
     });
     setStatus(error ? "Error: " + error.message : "Assignment added.");
     if (!error) {
-      setAssignForm({ ...assignForm, subject: "", title: "", description: "", dueDate: "" });
+      setAssignForm({ ...assignForm, title: "", description: "", dueDate: "" });
       loadAssignments(session.user.id);
     }
     setSaving(false);
@@ -225,7 +285,7 @@ export default function TeacherDashboard() {
     setStatus("Saving test...");
     const { error } = await supabase.from("tests").insert({
       class_level: parseInt(testForm.classLevel, 10),
-      subject: testForm.subject.trim(),
+      subject: profile?.subject,
       title: testForm.title.trim(),
       questions,
       scheduled_at: testForm.scheduledDate
@@ -235,7 +295,7 @@ export default function TeacherDashboard() {
     });
     setStatus(error ? "Error: " + error.message : "Test created.");
     if (!error) {
-      setTestForm({ ...testForm, subject: "", title: "", scheduledDate: "", scheduledTime: "" });
+      setTestForm({ ...testForm, title: "", scheduledDate: "", scheduledTime: "" });
       setQuestions([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
     }
     setSaving(false);
@@ -278,26 +338,124 @@ export default function TeacherDashboard() {
 
         {tab === "attendance" && (
           <div>
-            <div className="flex flex-wrap gap-3 mb-4">
-              <select className="input-field w-40" value={attClass} onChange={(e) => setAttClass(e.target.value)}>
-                {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
-              </select>
-              <input type="date" className="input-field w-48" value={attDate} onChange={(e) => setAttDate(e.target.value)} />
-              <button onClick={loadStudentsForAttendance} className="btn-secondary text-sm">Load students</button>
+            <div className="flex gap-1 p-1 rounded-xl bg-ink/[0.04] border border-line w-fit mb-5">
+              <button onClick={() => setAttView("mark")} className={`px-4 py-2 text-sm font-semibold rounded-lg ${attView === "mark" ? "bg-white text-clay shadow-sm" : "text-ink/60"}`}>Mark attendance</button>
+              <button onClick={() => { setAttView("history"); loadHistory(); }} className={`px-4 py-2 text-sm font-semibold rounded-lg ${attView === "history" ? "bg-white text-clay shadow-sm" : "text-ink/60"}`}>View records</button>
             </div>
-            {attStudents.length > 0 && (
-              <div className="card p-4 space-y-2">
-                {attStudents.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
-                    <span className="font-medium">{titleCase(s.full_name)}</span>
-                    <select className="input-field w-32 py-1" value={attMarks[s.id]} onChange={(e) => setAttMarks({ ...attMarks, [s.id]: e.target.value })}>
-                      <option value="present">Present</option>
-                      <option value="absent">Absent</option>
-                      <option value="late">Late</option>
-                    </select>
+
+            {attView === "mark" && (
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <select className="input-field w-40" value={attClass} onChange={(e) => setAttClass(e.target.value)}>
+                    {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+                  </select>
+                  <input type="date" className="input-field w-48" value={attDate} onChange={(e) => setAttDate(e.target.value)} />
+                  <button onClick={loadStudentsForAttendance} className="btn-secondary text-sm">Load students</button>
+                </div>
+
+                {attStudents.length > 0 && (
+                  <div className="card p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-ink/60">{attStudents.length} student{attStudents.length !== 1 ? "s" : ""} in Class {attClass}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => markAll("present")} className="text-xs font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Mark all present</button>
+                        <button onClick={() => markAll("absent")} className="text-xs font-semibold text-spark bg-spark/10 px-3 py-1.5 rounded-full">Mark all absent</button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {attStudents.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between text-sm py-2 border-b border-line last:border-0">
+                          <span className="font-medium">{titleCase(s.full_name)}</span>
+                          <div className="flex gap-1.5">
+                            {["present", "absent", "late"].map((st) => (
+                              <button
+                                key={st}
+                                onClick={() => setAttMarks({ ...attMarks, [s.id]: st })}
+                                className={`text-xs font-semibold px-3 py-1.5 rounded-full capitalize transition-all ${
+                                  attMarks[s.id] === st
+                                    ? st === "present" ? "bg-leaf text-white" : st === "absent" ? "bg-spark text-white" : "bg-saffron text-white"
+                                    : "bg-ink/[0.05] text-ink/50 hover:bg-ink/10"
+                                }`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-line">
+                      <p className="text-sm font-semibold text-ink/70">
+                        <span className="text-leaf">{Object.values(attMarks).filter((v) => v === "present").length} present</span>
+                        {" · "}
+                        <span className="text-spark">{Object.values(attMarks).filter((v) => v === "absent").length} absent</span>
+                        {" · "}
+                        <span className="text-saffron">{Object.values(attMarks).filter((v) => v === "late").length} late</span>
+                        {" · "}{attStudents.length} total
+                      </p>
+                      <button onClick={saveAttendance} disabled={saving} className="btn-primary">{saving ? "Saving..." : "Save attendance"}</button>
+                    </div>
                   </div>
-                ))}
-                <button onClick={saveAttendance} disabled={saving} className="btn-primary mt-3">{saving ? "Saving..." : "Save attendance"}</button>
+                )}
+              </div>
+            )}
+
+            {attView === "history" && (
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <select className="input-field w-40" value={attClass} onChange={(e) => setAttClass(e.target.value)}>
+                    {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+                  </select>
+                  <input type="month" className="input-field w-44" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
+                  <button onClick={loadHistory} className="btn-secondary text-sm">{historyLoading ? "Loading..." : "Load records"}</button>
+                </div>
+
+                {historyRecords.length === 0 ? (
+                  <EmptyState icon="📅" title="No attendance recorded for this month" subtitle="Pick a class and month, then load records." />
+                ) : (
+                  <div className="space-y-6">
+                    <div className="card p-4">
+                      <p className="label-eyebrow mb-3">Day-by-day</p>
+                      <div className="space-y-1.5">
+                        {Object.entries(
+                          historyRecords.reduce((acc, r) => {
+                            if (!acc[r.class_date]) acc[r.class_date] = { present: 0, absent: 0, late: 0 };
+                            acc[r.class_date][r.status] = (acc[r.class_date][r.status] || 0) + 1;
+                            return acc;
+                          }, {})
+                        ).map(([date, counts]) => (
+                          <div key={date} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
+                            <span>{new Date(date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
+                            <span className="text-ink/60">
+                              <span className="text-leaf font-semibold">{counts.present || 0} present</span> · <span className="text-spark font-semibold">{counts.absent || 0} absent</span> · <span className="text-saffron font-semibold">{counts.late || 0} late</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="card p-4">
+                      <p className="label-eyebrow mb-3">Monthly summary per student</p>
+                      <div className="space-y-1.5">
+                        {historyStudents.map((s) => {
+                          const studentRecords = historyRecords.filter((r) => r.student_id === s.id);
+                          const present = studentRecords.filter((r) => r.status === "present").length;
+                          const pct = studentRecords.length ? Math.round((present / studentRecords.length) * 100) : null;
+                          return (
+                            <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
+                              <span className="font-medium">{titleCase(s.full_name)}</span>
+                              <span className={`font-semibold ${pct === null ? "text-ink/40" : pct >= 75 ? "text-leaf" : pct >= 50 ? "text-saffron" : "text-spark"}`}>
+                                {pct === null ? "No records" : `${pct}% (${present}/${studentRecords.length})`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -309,7 +467,7 @@ export default function TeacherDashboard() {
               <select className="input-field" value={assignForm.classLevel} onChange={(e) => setAssignForm({ ...assignForm, classLevel: e.target.value })}>
                 {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
               </select>
-              <input required placeholder="Subject" className="input-field" value={assignForm.subject} onChange={(e) => setAssignForm({ ...assignForm, subject: e.target.value })} />
+              <div className="text-sm text-ink/60">Subject: <span className="font-semibold text-ink">{profile?.subject}</span></div>
               <input required placeholder="Title" className="input-field" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })} />
               <textarea placeholder="Description" className="input-field" rows={3} value={assignForm.description} onChange={(e) => setAssignForm({ ...assignForm, description: e.target.value })} />
               <input type="date" className="input-field" value={assignForm.dueDate} onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })} />
@@ -374,7 +532,7 @@ export default function TeacherDashboard() {
             <select className="input-field" value={testForm.classLevel} onChange={(e) => setTestForm({ ...testForm, classLevel: e.target.value })}>
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
             </select>
-            <input required placeholder="Subject" className="input-field" value={testForm.subject} onChange={(e) => setTestForm({ ...testForm, subject: e.target.value })} />
+            <div className="text-sm text-ink/60">Subject: <span className="font-semibold text-ink">{profile?.subject}</span></div>
             <input required placeholder="Test title" className="input-field" value={testForm.title} onChange={(e) => setTestForm({ ...testForm, title: e.target.value })} />
             <div>
               <label className="text-sm font-semibold text-ink/70">Scheduled date &amp; time (leave empty for always-available practice set)</label>
@@ -451,6 +609,17 @@ export default function TeacherDashboard() {
                     <button onClick={() => addRemark(s.id)} className="btn-primary text-sm py-1.5 whitespace-nowrap">Add remark</button>
                   </div>
                   {remarkStatus[s.id] && <div className="mt-2"><StatusPill tone={remarkStatus[s.id].startsWith("Error") ? "error" : "info"}>{remarkStatus[s.id]}</StatusPill></div>}
+
+                  {(studentRemarks[s.id] || []).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-line space-y-1.5">
+                      <p className="text-xs text-ink/50 font-semibold">Past remarks</p>
+                      {studentRemarks[s.id].map((r) => (
+                        <p key={r.id} className="text-sm text-ink/80">
+                          {r.remark} <span className="text-xs text-ink/40">— {new Date(r.created_at).toLocaleDateString()}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -463,7 +632,13 @@ export default function TeacherDashboard() {
             {analytics.length === 0 && <EmptyState icon="📊" title="No test attempts recorded yet" />}
             {analytics.map((a) => (
               <div key={a.key} className="mb-3">
-                <div className="flex justify-between text-sm mb-1"><span>{a.key}</span><span className="font-semibold">{a.pct}% avg &middot; {a.attempts} attempts</span></div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span>{a.key}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold">{a.pct}% avg &middot; {a.attempts} attempts</span>
+                    <PerformanceBadge pct={a.pct} />
+                  </span>
+                </div>
                 <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-clay to-leaf rounded-full transition-all duration-700" style={{ width: `${a.pct}%` }} />
                 </div>

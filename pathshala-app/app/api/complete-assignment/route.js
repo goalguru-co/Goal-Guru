@@ -6,7 +6,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const ASSIGNMENT_POINTS = 20;
+const ON_TIME_POINTS = 5;
+const LATE_POINTS = 2;
 
 export async function POST(req) {
   const { assignmentId, submission } = await req.json();
@@ -39,6 +40,10 @@ export async function POST(req) {
     return NextResponse.json({ error: "You've already submitted this assignment." }, { status: 409 });
   }
 
+  const { data: assignment } = await supabaseAdmin.from("assignments").select("due_date").eq("id", assignmentId).single();
+  const isOnTime = !assignment?.due_date || new Date() <= new Date(assignment.due_date);
+  const pointsAwarded = isOnTime ? ON_TIME_POINTS : LATE_POINTS;
+
   const { error: insertError } = await supabaseAdmin.from("assignment_submissions").insert({
     assignment_id: assignmentId,
     student_id: user.id,
@@ -50,7 +55,7 @@ export async function POST(req) {
   }
 
   const { data: profile } = await supabaseAdmin.from("profiles").select("points").eq("id", user.id).single();
-  await supabaseAdmin.from("profiles").update({ points: (profile?.points || 0) + ASSIGNMENT_POINTS }).eq("id", user.id);
+  await supabaseAdmin.from("profiles").update({ points: (profile?.points || 0) + pointsAwarded }).eq("id", user.id);
 
-  return NextResponse.json({ success: true, pointsAwarded: ASSIGNMENT_POINTS });
+  return NextResponse.json({ success: true, pointsAwarded, onTime: isOnTime });
 }

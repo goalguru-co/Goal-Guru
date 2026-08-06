@@ -14,7 +14,9 @@ import Badge from "@/components/Badge";
 import DonutChart from "@/components/DonutChart";
 import BarChart from "@/components/BarChart";
 import TrendLine from "@/components/TrendLine";
+import PerformanceBadge from "@/components/PerformanceBadge";
 import { isLikelyUrl, titleCase } from "@/lib/format";
+import { SUBJECTS } from "@/lib/subjects";
 import { useRouter } from "next/navigation";
 
 const QUICK_ACTIONS = [
@@ -29,7 +31,8 @@ const QUICK_ACTIONS = [
   { key: "profile", label: "Profile", icon: "👤", color: "#FFB020" },
 ];
 
-const ASSIGNMENT_POINTS = 20;
+const ON_TIME_POINTS = 5;
+const LATE_POINTS = 2;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -440,7 +443,9 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="mt-3">
-                      <p className="text-xs text-saffron font-semibold mb-2">🏆 Earn {ASSIGNMENT_POINTS} pts for submitting</p>
+                      <p className="text-xs text-saffron font-semibold mb-2">
+                        🏆 Earn {ON_TIME_POINTS} pts for submitting on time{a.due_date ? ` (${LATE_POINTS} pts if late)` : ""}
+                      </p>
                       <div className="flex flex-col md:flex-row gap-2">
                         <textarea
                           placeholder="Type your answer, or paste a link to your work (Drive, doc, photo, etc.)"
@@ -492,10 +497,12 @@ export default function DashboardPage() {
               <div className="card p-5">
                 <p className="label-eyebrow mb-1">Strongest subject</p>
                 <p className="text-lg font-semibold">{strongest ? `${strongest.subject} — ${strongest.pct}%` : "Take a test to see this"}</p>
+                {strongest && <PerformanceBadge pct={strongest.pct} className="mt-2" />}
               </div>
               <div className="card p-5">
                 <p className="label-eyebrow mb-1">Needs attention</p>
                 <p className="text-lg font-semibold">{weakest ? `${weakest.subject} — ${weakest.pct}%` : "Take a test to see this"}</p>
+                {weakest && <PerformanceBadge pct={weakest.pct} className="mt-2" />}
               </div>
             </div>
 
@@ -512,6 +519,16 @@ export default function DashboardPage() {
                 {subjectList.length === 0 && <p className="text-sm text-ink/50">No test attempts yet.</p>}
                 {subjectList.length > 0 && (
                   <BarChart data={subjectList.map((s) => ({ label: s.subject, value: s.pct }))} />
+                )}
+                {subjectList.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {subjectList.map((s) => (
+                      <div key={s.subject} className="flex items-center gap-1.5">
+                        <span className="text-xs text-ink/60">{s.subject}</span>
+                        <PerformanceBadge pct={s.pct} />
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="card p-5">
@@ -565,13 +582,15 @@ export default function DashboardPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <form onSubmit={submitDoubt} className="card p-5 space-y-3 h-fit">
               <p className="label-eyebrow">Ask a doubt</p>
-              <input
+              <select
                 required
-                placeholder="Subject"
                 className="input-field"
                 value={doubtForm.subject}
                 onChange={(e) => setDoubtForm({ ...doubtForm, subject: e.target.value })}
-              />
+              >
+                <option value="">Select subject</option>
+                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
               <textarea
                 required
                 placeholder="Type your question..."

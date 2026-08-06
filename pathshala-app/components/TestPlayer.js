@@ -8,6 +8,7 @@ export default function TestPlayer({ test, studentId, onDone }) {
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -43,6 +44,7 @@ export default function TestPlayer({ test, studentId, onDone }) {
 
     setScore(result.score);
     setTotal(result.total);
+    setPointsAwarded(result.pointsAwarded);
     setSubmitted(true);
     setSubmitting(false);
 
@@ -57,7 +59,7 @@ export default function TestPlayer({ test, studentId, onDone }) {
         <p className="font-display text-4xl font-extrabold text-gradient relative">
           {score} / {total}
         </p>
-        <p className="text-sm text-leaf font-semibold mt-2 relative">+{score * 10} points added to your profile 🎉</p>
+        <p className="text-sm text-leaf font-semibold mt-2 relative">+{pointsAwarded} points added to your profile 🎉</p>
         {shortQuestions.length > 0 && (
           <p className="text-xs text-ink/50 mt-2 relative">
             Your {shortQuestions.length} short-answer response{shortQuestions.length > 1 ? "s were" : " was"} submitted too — these aren't auto-scored.

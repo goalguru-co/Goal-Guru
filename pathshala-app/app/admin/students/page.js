@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
 import StatusPill from "@/components/StatusPill";
-import { titleCase } from "@/lib/format";
+import { titleCase, normalizePhone } from "@/lib/format";
 import Papa from "papaparse";
 import { useRouter } from "next/navigation";
 
@@ -102,7 +102,7 @@ export default function ManageUsers() {
     if (!phone) return;
     setLinkStatus((s) => ({ ...s, [parent.id]: "Linking..." }));
 
-    const { data: student } = await supabase.from("profiles").select("id").eq("phone", phone).eq("role", "student").maybeSingle();
+    const student = students.find((s) => normalizePhone(s.phone) === normalizePhone(phone));
     if (!student) {
       setLinkStatus((s) => ({ ...s, [parent.id]: "No approved student found with that phone number." }));
       return;

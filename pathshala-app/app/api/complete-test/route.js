@@ -6,6 +6,16 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Points per correct answer scale with overall accuracy — full marks earns the
+// most per question, lower scores earn progressively less.
+function pointsPerCorrectAnswer(percentCorrect) {
+  if (percentCorrect >= 100) return 10;
+  if (percentCorrect >= 80) return 7;
+  if (percentCorrect >= 60) return 5;
+  if (percentCorrect >= 40) return 3;
+  return 1;
+}
+
 export async function POST(req) {
   const { testId, answers } = await req.json();
 
@@ -75,13 +85,16 @@ export async function POST(req) {
     .eq("id", user.id)
     .single();
 
+  const percentCorrect = mcqQuestions.length ? Math.round((score / mcqQuestions.length) * 100) : 0;
+  const pointsAwarded = score * pointsPerCorrectAnswer(percentCorrect);
+
   await supabaseAdmin
     .from("profiles")
     .update({
-      points: (profile?.points || 0) + score * 10,
+      points: (profile?.points || 0) + pointsAwarded,
       streak_count: (profile?.streak_count || 0) + 1,
     })
     .eq("id", user.id);
 
-  return NextResponse.json({ score, total: mcqQuestions.length, pointsAwarded: score * 10 });
+  return NextResponse.json({ score, total: mcqQuestions.length, pointsAwarded });
 }

@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import PageLoading from "@/components/PageLoading";
 import DonutChart from "@/components/DonutChart";
 import TrendLine from "@/components/TrendLine";
+import PerformanceBadge from "@/components/PerformanceBadge";
 import { titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
@@ -156,6 +157,7 @@ export default function ParentDashboard() {
                   <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm bg-leaf/10">🎯</span>
                 </div>
                 <p className="font-display text-2xl md:text-3xl font-extrabold text-ink">{avgScorePct !== null ? `${avgScorePct}%` : "—"}</p>
+                {avgScorePct !== null && <PerformanceBadge pct={avgScorePct} className="mt-1" />}
                 <p className="text-xs text-clay font-semibold mt-1">{expandedStat === "scores" ? "Hide breakdown ▲" : "View breakdown ▼"}</p>
               </button>
 

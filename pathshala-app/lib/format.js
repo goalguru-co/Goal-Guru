@@ -12,6 +12,14 @@ export function isLikelyUrl(value) {
   }
 }
 
+// Normalizes to the last 10 digits, so "+91 83290 42495", "8329042495", and
+// "832-904-2495" all match each other regardless of how each was typed.
+export function normalizePhone(p) {
+  if (!p) return "";
+  const digits = p.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
 // Title-cases a name for display only — never mutates stored data.
 // "jai patil" -> "Jai Patil"
 export function titleCase(value) {
