@@ -13,7 +13,7 @@ import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
-const TABS = ["overview", "attendance", "assignments", "tests", "remarks", "analytics", "doubts"];
+const TABS = ["overview", "attendance", "assignments", "tests", "notes", "remarks", "analytics", "doubts"];
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -61,6 +61,10 @@ export default function TeacherDashboard() {
   const [remarkInputs, setRemarkInputs] = useState({});
   const [remarkStatus, setRemarkStatus] = useState({});
 
+  // Study material (Notes)
+  const [materialForm, setMaterialForm] = useState({ classLevel: "6", title: "", fileUrl: "" });
+  const [myMaterial, setMyMaterial] = useState([]);
+
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -95,6 +99,7 @@ export default function TeacherDashboard() {
       });
       setAnalytics(Object.entries(bySubject).map(([k, v]) => ({ key: k, pct: v.total ? Math.round((v.correct / v.total) * 100) : 0, attempts: v.count })));
       loadAssignments(session.user.id);
+      loadMyMaterial(session.user.id);
       setLoading(false);
     }
     init();
@@ -103,6 +108,36 @@ export default function TeacherDashboard() {
   async function loadAssignments(userId) {
     const { data } = await supabase.from("assignments").select("*").eq("created_by", userId).order("created_at", { ascending: false });
     setPastAssignments(data || []);
+  }
+
+  async function loadMyMaterial(userId) {
+    const { data } = await supabase.from("study_material").select("*").eq("created_by", userId).order("created_at", { ascending: false });
+    setMyMaterial(data || []);
+  }
+
+  async function submitMaterial(e) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setStatus("Saving study material...");
+    const { error } = await supabase.from("study_material").insert({
+      class_level: parseInt(materialForm.classLevel, 10),
+      subject: profile?.subject,
+      title: materialForm.title.trim(),
+      file_url: materialForm.fileUrl.trim(),
+      created_by: session.user.id,
+    });
+    setStatus(error ? "Error: " + error.message : "Study material added.");
+    if (!error) {
+      setMaterialForm({ ...materialForm, title: "", fileUrl: "" });
+      loadMyMaterial(session.user.id);
+    }
+    setSaving(false);
+  }
+
+  async function deleteMaterial(id) {
+    await supabase.from("study_material").delete().eq("id", id);
+    loadMyMaterial(session.user.id);
   }
 
   async function loadSubmissions(assignmentId) {
@@ -520,6 +555,37 @@ export default function TeacherDashboard() {
                         ))}
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "notes" && (
+          <div className="space-y-6">
+            <form onSubmit={submitMaterial} className="card p-6 space-y-4 max-w-lg">
+              <select className="input-field" value={materialForm.classLevel} onChange={(e) => setMaterialForm({ ...materialForm, classLevel: e.target.value })}>
+                {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+              </select>
+              <div className="text-sm text-ink/60">Subject: <span className="font-semibold text-ink">{profile?.subject}</span></div>
+              <input required placeholder="Title" className="input-field" value={materialForm.title} onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })} />
+              <input required placeholder="File link (Google Drive share link, etc.)" className="input-field" value={materialForm.fileUrl} onChange={(e) => setMaterialForm({ ...materialForm, fileUrl: e.target.value })} />
+              <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Add study material"}</button>
+            </form>
+
+            <div>
+              <p className="label-eyebrow mb-3">Your uploads</p>
+              <div className="space-y-3">
+                {myMaterial.length === 0 && <EmptyState icon="📄" title="No study material uploaded yet" />}
+                {myMaterial.map((m) => (
+                  <div key={m.id} className="card p-4 flex items-center justify-between">
+                    <div>
+                      <p className="label-eyebrow mb-1">{m.subject} — Class {m.class_level}</p>
+                      <p className="font-semibold">{m.title}</p>
+                      <a href={m.file_url} target="_blank" rel="noreferrer" className="text-xs text-clay font-semibold">View file</a>
+                    </div>
+                    <button onClick={() => deleteMaterial(m.id)} className="text-xs text-spark font-semibold">Delete</button>
                   </div>
                 ))}
               </div>
