@@ -19,10 +19,13 @@ export default function ManageUsers() {
   const [loading, setLoading] = useState(true);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [parents, setParents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [linkPhoneInputs, setLinkPhoneInputs] = useState({});
   const [linkStatus, setLinkStatus] = useState({});
   const [students, setStudents] = useState([]);
   const [subStatus, setSubStatus] = useState({});
+  const [userActionStatus, setUserActionStatus] = useState({});
+  const [deletingId, setDeletingId] = useState(null);
   const [expandedFeesStudent, setExpandedFeesStudent] = useState(null);
   const [studentFees, setStudentFees] = useState([]);
   const [feeInputs, setFeeInputs] = useState({});
@@ -50,6 +53,15 @@ export default function ManageUsers() {
     (allLinks || []).forEach((l) => { linkMap[l.parent_id] = l; });
 
     setParents((parentsData || []).map((p) => ({ ...p, link: linkMap[p.id] || null })));
+
+    const { data: teachersData } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone, subject")
+      .eq("role", "teacher")
+      .eq("approved", true)
+      .order("subject")
+      .order("full_name");
+    setTeachers(teachersData || []);
 
     const { data: studentsData } = await supabase
       .from("profiles")
@@ -93,7 +105,24 @@ export default function ManageUsers() {
   }
 
   async function reject(id) {
-    await supabase.from("profiles").delete().eq("id", id);
+    await deleteUser(id);
+  }
+
+  async function deleteUser(id) {
+    setDeletingId(id);
+    setUserActionStatus((s) => ({ ...s, [id]: "" }));
+    const { data: { session: current } } = await supabase.auth.getSession();
+    const res = await fetch("/api/delete-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${current?.access_token}` },
+      body: JSON.stringify({ userId: id }),
+    });
+    const result = await res.json();
+    setDeletingId(null);
+    if (result.error) {
+      setUserActionStatus((s) => ({ ...s, [id]: "Error: " + result.error }));
+      return;
+    }
     loadData();
   }
 
@@ -258,10 +287,11 @@ export default function ManageUsers() {
                     {u.role === "teacher" && `${u.subject} · `}
                     {u.phone}
                   </p>
+                  {userActionStatus[u.id] && <div className="mt-1"><StatusPill tone="error">{userActionStatus[u.id]}</StatusPill></div>}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => approve(u.id)} className="btn-primary text-sm py-1.5">Approve</button>
-                  <button onClick={() => reject(u.id)} className="btn-secondary text-sm py-1.5">Reject</button>
+                  <button onClick={() => reject(u.id)} disabled={deletingId === u.id} className="btn-secondary text-sm py-1.5">{deletingId === u.id ? "Rejecting..." : "Reject"}</button>
                 </div>
               </div>
             ))}
@@ -302,7 +332,28 @@ export default function ManageUsers() {
                   {p.link?.student_id && (
                     <button onClick={() => unlinkParent(p)} className="btn-secondary text-sm py-1.5 whitespace-nowrap">Unlink</button>
                   )}
+                  <button onClick={() => deleteUser(p.id)} disabled={deletingId === p.id} className="text-xs text-spark font-semibold whitespace-nowrap">
+                    {deletingId === p.id ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="font-display text-xl font-bold mb-2">Teachers</h2>
+          <div className="space-y-3">
+            {teachers.length === 0 && <EmptyState icon="🧑‍🏫" title="No approved teachers yet" />}
+            {teachers.map((t) => (
+              <div key={t.id} className="card p-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{titleCase(t.full_name)} <span className="text-xs text-ink/50 font-normal">— {t.subject} · {t.phone}</span></p>
+                  {userActionStatus[t.id] && <div className="mt-1"><StatusPill tone="error">{userActionStatus[t.id]}</StatusPill></div>}
+                </div>
+                <button onClick={() => deleteUser(t.id)} disabled={deletingId === t.id} className="text-xs text-spark font-semibold shrink-0">
+                  {deletingId === t.id ? "Deleting..." : "Delete"}
+                </button>
               </div>
             ))}
           </div>
@@ -329,6 +380,7 @@ export default function ManageUsers() {
                       )}
                     </p>
                     {subStatus[s.id] && <div className="mt-1"><StatusPill tone={subStatus[s.id].startsWith("Error") ? "error" : "info"}>{subStatus[s.id]}</StatusPill></div>}
+                    {userActionStatus[s.id] && <div className="mt-1"><StatusPill tone="error">{userActionStatus[s.id]}</StatusPill></div>}
                   </div>
                   <div className="flex items-center gap-2">
                     {s.subEndsAt ? (
@@ -338,6 +390,9 @@ export default function ManageUsers() {
                     )}
                     <button onClick={() => toggleFees(s.id)} className="btn-secondary text-sm py-1.5 whitespace-nowrap">
                       {expandedFeesStudent === s.id ? "Hide fees ▲" : "Manage fees ▼"}
+                    </button>
+                    <button onClick={() => deleteUser(s.id)} disabled={deletingId === s.id} className="text-xs text-spark font-semibold whitespace-nowrap">
+                      {deletingId === s.id ? "Deleting..." : "Delete"}
                     </button>
                   </div>
                 </div>
