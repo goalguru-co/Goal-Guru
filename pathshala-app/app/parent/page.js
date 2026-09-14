@@ -245,7 +245,12 @@ export default function ParentDashboard() {
               <p className="label-eyebrow mb-3">Parent-teacher meeting schedule</p>
               {ptm.length === 0 && <p className="text-sm text-ink/50">No meetings scheduled.</p>}
               {ptm.map((p) => (
-                <p key={p.id} className="text-sm py-1">{new Date(p.scheduled_at).toLocaleString()} — {p.notes}</p>
+                <div key={p.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
+                  <span>{new Date(p.scheduled_at).toLocaleString()} — {p.notes}</span>
+                  {p.meeting_link && (
+                    <a href={p.meeting_link} target="_blank" rel="noreferrer" className="btn-secondary text-xs py-1 px-3 whitespace-nowrap shrink-0 ml-3">Join meeting</a>
+                  )}
+                </div>
               ))}
             </div>
           </>

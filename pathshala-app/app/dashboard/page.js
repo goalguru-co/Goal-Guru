@@ -273,7 +273,16 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-4">
-              <StatCard label="Points" value={profile?.points || 0} icon="🏆" accent="saffron" />
+              <div className="card p-5">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="label-eyebrow">Points</p>
+                  <span className="text-lg">🏆</span>
+                </div>
+                <p className="font-display text-2xl md:text-3xl font-extrabold text-ink">{profile?.points || 0}</p>
+                <p className="text-xs text-ink/50 mt-1.5 leading-relaxed">
+                  Tests: up to 10 pts/correct answer (scales with your accuracy). Assignments: 5 pts on time, 2 pts if late.
+                </p>
+              </div>
               <StatCard label="Streak" value={`${profile?.streak_count || 0} tests`} icon="🔥" accent="spark" />
               <div className="card p-5">
                 <p className="label-eyebrow">Today's plan</p>

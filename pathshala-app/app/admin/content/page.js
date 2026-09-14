@@ -35,7 +35,7 @@ export default function ManageContent() {
   const [materialForm, setMaterialForm] = useState({ classLevel: "6", subject: "", title: "", fileUrl: "" });
   const [materialList, setMaterialList] = useState([]);
   const [editingMaterialId, setEditingMaterialId] = useState(null);
-  const [ptmForm, setPtmForm] = useState({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "" });
+  const [ptmForm, setPtmForm] = useState({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "", meetingLink: "" });
   const [ptmList, setPtmList] = useState([]);
   const [faqForm, setFaqForm] = useState({ role: "", keywords: "", question: "", answer: "" });
   const [faqList, setFaqList] = useState([]);
@@ -88,12 +88,6 @@ export default function ManageContent() {
     init();
   }, [router]);
 
-  function extractYoutubeId(input) {
-    // Accepts a full URL or a bare 11-char video ID
-    const match = input.match(/(?:v=|\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
-    return match ? match[1] : input.trim();
-  }
-
   async function submitVideo(e) {
     e.preventDefault();
     if (saving) return;
@@ -103,7 +97,7 @@ export default function ManageContent() {
       class_level: parseInt(videoForm.classLevel, 10),
       subject: videoForm.subject.trim(),
       title: videoForm.title.trim(),
-      youtube_id: extractYoutubeId(videoForm.youtubeId),
+      youtube_id: videoForm.youtubeId.trim(),
     };
     const { error } = editingVideoId
       ? await supabase.from("videos").update(payload).eq("id", editingVideoId)
@@ -136,7 +130,7 @@ export default function ManageContent() {
       class_level: parseInt(liveForm.classLevel, 10),
       subject: liveForm.subject.trim(),
       title: liveForm.title.trim(),
-      youtube_id: extractYoutubeId(liveForm.youtubeId),
+      youtube_id: liveForm.youtubeId.trim(),
       scheduled_at: liveForm.scheduledDate
         ? new Date(`${liveForm.scheduledDate}T${liveForm.scheduledTime || "00:00"}`).toISOString()
         : null,
@@ -218,10 +212,11 @@ export default function ManageContent() {
       class_level: ptmForm.classLevel ? parseInt(ptmForm.classLevel, 10) : null,
       scheduled_at: new Date(`${ptmForm.scheduledDate}T${ptmForm.scheduledTime || "00:00"}`).toISOString(),
       notes: ptmForm.notes.trim(),
+      meeting_link: ptmForm.meetingLink.trim() || null,
     });
     setStatus(error ? "Error: " + error.message : "PTM scheduled.");
     if (!error) {
-      setPtmForm({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "" });
+      setPtmForm({ classLevel: "", scheduledDate: "", scheduledTime: "", notes: "", meetingLink: "" });
       loadPtm();
     }
     setSaving(false);
@@ -276,7 +271,7 @@ export default function ManageContent() {
               <Field label="Title">
                 <input required className="input-field" value={videoForm.title} onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })} />
               </Field>
-              <Field label="YouTube link or video ID (unlisted)">
+              <Field label="Video link (YouTube for recordings, or paste any link)">
                 <input required className="input-field" value={videoForm.youtubeId} onChange={(e) => setVideoForm({ ...videoForm, youtubeId: e.target.value })} />
               </Field>
               <div className="flex gap-2">
@@ -321,8 +316,9 @@ export default function ManageContent() {
               <Field label="Title">
                 <input required className="input-field" value={liveForm.title} onChange={(e) => setLiveForm({ ...liveForm, title: e.target.value })} />
               </Field>
-              <Field label="YouTube Live link or video ID (unlisted)">
+              <Field label="Live class link (Zoom/Google Meet join link, or YouTube Live)">
                 <input required className="input-field" value={liveForm.youtubeId} onChange={(e) => setLiveForm({ ...liveForm, youtubeId: e.target.value })} />
+                <p className="text-xs text-ink/50 mt-1">YouTube links play inline. Zoom/Meet/Teams links show a "Join" button that opens in a new tab.</p>
               </Field>
               <Field label="Scheduled date & time">
                 <div className="flex gap-3">
@@ -419,6 +415,9 @@ export default function ManageContent() {
               <Field label="Notes (venue, agenda, etc.)">
                 <textarea required className="input-field" rows={3} value={ptmForm.notes} onChange={(e) => setPtmForm({ ...ptmForm, notes: e.target.value })} />
               </Field>
+              <Field label="Meeting link (optional — Zoom/Google Meet join link)">
+                <input className="input-field" value={ptmForm.meetingLink} onChange={(e) => setPtmForm({ ...ptmForm, meetingLink: e.target.value })} />
+              </Field>
               <button disabled={saving} className="btn-primary">{saving ? "Saving..." : "Schedule PTM"}</button>
             </form>
 
@@ -432,6 +431,7 @@ export default function ManageContent() {
                       <p className="label-eyebrow mb-1">{p.class_level ? `Class ${p.class_level}` : "All classes"}</p>
                       <p className="font-semibold">{new Date(p.scheduled_at).toLocaleString()}</p>
                       {p.notes && <p className="text-sm text-ink/60 mt-1">{p.notes}</p>}
+                      {p.meeting_link && <a href={p.meeting_link} target="_blank" rel="noreferrer" className="text-xs text-clay font-semibold mt-1 inline-block">Meeting link ↗</a>}
                     </div>
                     <button onClick={() => deletePtm(p.id)} className="text-xs text-spark font-semibold shrink-0">Delete</button>
                   </div>
