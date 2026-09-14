@@ -197,6 +197,15 @@ export default function DashboardPage() {
   const strongest = subjectList.length ? [...subjectList].sort((a, b) => b.pct - a.pct)[0] : null;
   const weakest = subjectList.length ? [...subjectList].sort((a, b) => a.pct - b.pct)[0] : null;
 
+  // Live right now (started within the last hour) or starting within 15 minutes —
+  // this drives the pulsing notification banner shown on every tab.
+  const now = new Date();
+  const liveSoonOrNow = liveClasses.filter((l) => {
+    const start = new Date(l.scheduled_at);
+    const minutesUntil = (start - now) / 60000;
+    return minutesUntil <= 15 && minutesUntil >= -60;
+  });
+
   const scoreTrend = [...attempts]
     .filter((a) => a.completed_at)
     .sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at))
@@ -220,6 +229,44 @@ export default function DashboardPage() {
           title={<>👋 Welcome back, {titleCase(profile?.full_name?.split(" ")[0])}</>}
         />
 
+        {liveSoonOrNow.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {liveSoonOrNow.map((l) => {
+              const isLiveNow = new Date(l.scheduled_at) <= now;
+              return (
+                <div
+                  key={l.id}
+                  className="rounded-2xl p-4 flex items-center justify-between gap-4 text-white shadow-glow-lg"
+                  style={{ background: "linear-gradient(135deg, #FF4D8D, #2F6FED)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                    </span>
+                    <div>
+                      <p className="font-bold text-sm">{isLiveNow ? "🔴 LIVE NOW" : "Starting soon"} — {l.title}</p>
+                      <p className="text-xs text-white/80">{l.subject} · {new Date(l.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                    </div>
+                  </div>
+                  {hasAccess ? (
+                    <button
+                      onClick={() => { setTab("live"); setSubjectFilter((f) => ({ ...f, live: l.subject })); }}
+                      className="bg-white text-clay font-bold text-sm px-4 py-2 rounded-lg shrink-0 hover:-translate-y-0.5 transition-transform"
+                    >
+                      Join now
+                    </button>
+                  ) : (
+                    <a href="/dashboard/subscribe" className="bg-white text-clay font-bold text-sm px-4 py-2 rounded-lg shrink-0 whitespace-nowrap">
+                      Subscribe to join
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {!hasAccess && (
           <div className="card-gradient-border p-5 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -237,10 +284,16 @@ export default function DashboardPage() {
               key={qa.key}
               onClick={() => setTab(qa.key)}
               style={tab === qa.key ? { background: `linear-gradient(135deg, ${qa.color}, #06B6D4)`, borderColor: qa.color } : {}}
-              className={`flex items-center gap-2 pl-2 pr-4 py-2 rounded-full border text-sm font-semibold whitespace-nowrap shrink-0 transition-all duration-300 ${
+              className={`relative flex items-center gap-2 pl-2 pr-4 py-2 rounded-full border text-sm font-semibold whitespace-nowrap shrink-0 transition-all duration-300 ${
                 tab === qa.key ? "text-white shadow-glow" : "bg-white border-line text-ink/70 hover:border-clay/50 hover:-translate-y-0.5"
               }`}
             >
+              {qa.key === "live" && liveSoonOrNow.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-spark opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-spark border-2 border-white" />
+                </span>
+              )}
               <span
                 className="text-base w-7 h-7 flex items-center justify-center rounded-full shrink-0"
                 style={{ background: tab === qa.key ? "rgba(255,255,255,0.25)" : `${qa.color}1A` }}
@@ -382,7 +435,7 @@ export default function DashboardPage() {
                     <button onClick={() => setSubjectFilter((f) => ({ ...f, [tab]: null }))} className="btn-secondary text-sm mb-1">← All subjects</button>
                     {(tab === "practice" ? practiceTests : scheduledTests).filter((t) => t.subject === subjectFilter[tab]).map((t) => {
                       const attempt = attemptedTests[t.id];
-                      const maxPoints = (t.questions || []).filter((q) => q.type !== "short").length * 10;
+                      const maxPoints = (t.questions || []).length * 10;
                       return (
                         <div key={t.id} className="card p-4 flex items-center justify-between">
                           <div>
@@ -394,7 +447,11 @@ export default function DashboardPage() {
                             )}
                           </div>
                           {attempt ? (
-                            <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Completed — {attempt.score}/{attempt.total}</span>
+                            attempt.pending_review ? (
+                              <span className="text-sm font-semibold text-saffron bg-saffron/10 px-3 py-1.5 rounded-full">Pending review</span>
+                            ) : (
+                              <span className="text-sm font-semibold text-leaf bg-leaf/10 px-3 py-1.5 rounded-full">Completed — {attempt.score}/{attempt.total}</span>
+                            )
                           ) : (
                             <button onClick={() => setActiveTest(t)} className="btn-primary text-sm py-1.5" disabled={!hasAccess}>
                               {hasAccess ? "Start" : "Locked"}

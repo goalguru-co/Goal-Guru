@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { pointsPerCorrectAnswer } from "@/lib/points";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,14 +8,8 @@ const supabaseAdmin = createClient(
 );
 
 // Points per correct answer scale with overall accuracy — full marks earns the
-// most per question, lower scores earn progressively less.
-function pointsPerCorrectAnswer(percentCorrect) {
-  if (percentCorrect >= 100) return 10;
-  if (percentCorrect >= 80) return 7;
-  if (percentCorrect >= 60) return 5;
-  if (percentCorrect >= 40) return 3;
-  return 1;
-}
+// most per question, lower scores earn progressively less. Kept in @/lib/points
+// so both this route and the short-answer grading route stay in sync.
 
 export async function POST(req) {
   const { testId, answers } = await req.json();
@@ -59,20 +54,27 @@ export async function POST(req) {
 
   const questions = test.questions || [];
   const mcqQuestions = questions.filter((q) => q.type !== "short");
+  const shortQuestions = questions.filter((q) => q.type === "short");
 
   // Score is computed here, server-side, against the real stored answer key —
   // the client's submitted "score" (if any) is never trusted.
-  let score = 0;
+  let mcqScore = 0;
   questions.forEach((q, i) => {
-    if (q.type !== "short" && answers?.[i] === q.correct) score += 1;
+    if (q.type !== "short" && answers?.[i] === q.correct) mcqScore += 1;
   });
+
+  // Total now covers every question, MCQ + short-answer, calculated automatically
+  // from the test itself rather than only counting the auto-gradable ones.
+  const total = questions.length;
+  const needsReview = shortQuestions.length > 0;
 
   const { error: insertError } = await supabaseAdmin.from("test_attempts").insert({
     test_id: testId,
     student_id: user.id,
     answers: answers || {},
-    score,
-    total: mcqQuestions.length,
+    score: mcqScore,
+    total,
+    pending_review: needsReview,
   });
 
   if (insertError) {
@@ -85,8 +87,15 @@ export async function POST(req) {
     .eq("id", user.id)
     .single();
 
-  const percentCorrect = mcqQuestions.length ? Math.round((score / mcqQuestions.length) * 100) : 0;
-  const pointsAwarded = score * pointsPerCorrectAnswer(percentCorrect);
+  // Streak counts the attempt itself regardless of grading status — the student
+  // did show up and complete it. Points, on the other hand, depend on the final
+  // score, so if short answers still need a teacher's review, points are held
+  // back and awarded once grading finishes (see /api/grade-short-answers).
+  let pointsAwarded = 0;
+  if (!needsReview) {
+    const percentCorrect = total ? Math.round((mcqScore / total) * 100) : 0;
+    pointsAwarded = mcqScore * pointsPerCorrectAnswer(percentCorrect);
+  }
 
   await supabaseAdmin
     .from("profiles")
@@ -96,5 +105,5 @@ export async function POST(req) {
     })
     .eq("id", user.id);
 
-  return NextResponse.json({ score, total: mcqQuestions.length, pointsAwarded });
+  return NextResponse.json({ score: mcqScore, total, pointsAwarded, pendingReview: needsReview });
 }

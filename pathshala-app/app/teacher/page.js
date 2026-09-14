@@ -46,6 +46,12 @@ export default function TeacherDashboard() {
   // Test creation
   const [testForm, setTestForm] = useState({ classLevel: "6", title: "", scheduledDate: "", scheduledTime: "" });
   const [questions, setQuestions] = useState([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
+  const [pastTests, setPastTests] = useState([]);
+  const [expandedTest, setExpandedTest] = useState(null);
+  const [pendingAttempts, setPendingAttempts] = useState([]);
+  const [reviewMarks, setReviewMarks] = useState({}); // { [attemptId]: { [questionIndex]: true|false } }
+  const [gradingId, setGradingId] = useState(null);
+  const [gradeStatus, setGradeStatus] = useState({});
 
   // Analytics
   const [analytics, setAnalytics] = useState([]);
@@ -100,6 +106,7 @@ export default function TeacherDashboard() {
       setAnalytics(Object.entries(bySubject).map(([k, v]) => ({ key: k, pct: v.total ? Math.round((v.correct / v.total) * 100) : 0, attempts: v.count })));
       loadAssignments(session.user.id);
       loadMyMaterial(session.user.id);
+      loadTests(session.user.id);
       setLoading(false);
     }
     init();
@@ -332,8 +339,59 @@ export default function TeacherDashboard() {
     if (!error) {
       setTestForm({ ...testForm, title: "", scheduledDate: "", scheduledTime: "" });
       setQuestions([{ type: "mcq", q: "", options: ["", "", "", ""], correct: null }]);
+      loadTests(session.user.id);
     }
     setSaving(false);
+  }
+
+  async function loadTests(userId) {
+    const { data } = await supabase.from("tests").select("*").eq("created_by", userId).order("created_at", { ascending: false });
+    setPastTests(data || []);
+  }
+
+  async function loadPendingAttempts(testId) {
+    if (expandedTest === testId) {
+      setExpandedTest(null);
+      return;
+    }
+    setExpandedTest(testId);
+    const { data } = await supabase
+      .from("test_attempts")
+      .select("*, profiles!test_attempts_student_id_fkey(full_name)")
+      .eq("test_id", testId)
+      .eq("pending_review", true)
+      .order("completed_at", { ascending: false });
+    setPendingAttempts(data || []);
+  }
+
+  function toggleReviewMark(attemptId, qIndex, value) {
+    setReviewMarks((m) => ({
+      ...m,
+      [attemptId]: { ...(m[attemptId] || {}), [qIndex]: value },
+    }));
+  }
+
+  async function saveReview(attemptId) {
+    const marks = reviewMarks[attemptId] || {};
+    setGradingId(attemptId);
+    setGradeStatus((s) => ({ ...s, [attemptId]: "" }));
+
+    const { data: { session: current } } = await supabase.auth.getSession();
+    const res = await fetch("/api/grade-short-answers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${current?.access_token}` },
+      body: JSON.stringify({ attemptId, marks }),
+    });
+    const result = await res.json();
+
+    if (result.error) {
+      setGradeStatus((s) => ({ ...s, [attemptId]: "Error: " + result.error }));
+      setGradingId(null);
+      return;
+    }
+
+    setPendingAttempts((atts) => atts.filter((a) => a.id !== attemptId));
+    setGradingId(null);
   }
 
   async function respondToDoubt(id) {
@@ -594,6 +652,7 @@ export default function TeacherDashboard() {
         )}
 
         {tab === "tests" && (
+          <div className="space-y-6">
           <form onSubmit={submitTest} className="card p-6 space-y-4 max-w-2xl">
             <select className="input-field" value={testForm.classLevel} onChange={(e) => setTestForm({ ...testForm, classLevel: e.target.value })}>
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
@@ -610,7 +669,7 @@ export default function TeacherDashboard() {
 
             <div className="flex items-center justify-between">
               <p className="label-eyebrow">Questions</p>
-              <p className="text-xs text-ink/50">Students earn 10 pts per correct MCQ answer — up to {questions.filter((q) => q.type === "mcq").length * 10} pts on this test</p>
+              <p className="text-xs text-ink/50">Up to 10 pts/question, scaled by overall accuracy — {questions.length * 10} pts max on this test</p>
             </div>
             {questions.map((q, i) => (
               <div key={i} className="border border-line rounded-xl p-4 space-y-2 bg-ink/[0.015]">
@@ -636,7 +695,7 @@ export default function TeacherDashboard() {
                   </>
                 ) : (
                   <div>
-                    <p className="text-xs text-ink/50 mb-1">Students will type a free-text answer. This isn't auto-graded, and there's no review screen yet — you can check responses directly in your Supabase table if needed.</p>
+                    <p className="text-xs text-ink/50 mb-1">Students will type a free-text answer. Once submitted, you'll grade each response as correct/incorrect below in "Past tests" — points are awarded after you finish grading.</p>
                     <input
                       placeholder="Model answer (optional, for your own reference)"
                       className="input-field"
@@ -650,6 +709,77 @@ export default function TeacherDashboard() {
             <button type="button" onClick={addQuestion} className="btn-secondary text-sm">+ Add question</button>
             <button disabled={saving} className="btn-primary w-full">{saving ? "Saving..." : "Create test"}</button>
           </form>
+
+          <div>
+            <p className="label-eyebrow mb-3">Past tests</p>
+            <div className="space-y-3">
+              {pastTests.length === 0 && <EmptyState icon="🎯" title="No tests created yet" />}
+              {pastTests.map((t) => {
+                const shortCount = (t.questions || []).filter((q) => q.type === "short").length;
+                return (
+                  <div key={t.id} className="card p-4">
+                    <div className="w-full flex items-center justify-between">
+                      <div>
+                        <p className="label-eyebrow mb-1">{t.subject} — Class {t.class_level}</p>
+                        <p className="font-semibold">{t.title}</p>
+                        <p className="text-xs text-ink/50 mt-1">{(t.questions || []).length} questions{shortCount > 0 ? ` · ${shortCount} short-answer` : ""}</p>
+                      </div>
+                      {shortCount > 0 && (
+                        <button onClick={() => loadPendingAttempts(t.id)} className="text-sm text-clay font-semibold whitespace-nowrap">
+                          {expandedTest === t.id ? "Hide grading ▲" : "Grade responses ▼"}
+                        </button>
+                      )}
+                    </div>
+
+                    {expandedTest === t.id && (
+                      <div className="mt-4 pt-4 border-t border-line space-y-4">
+                        {pendingAttempts.length === 0 && <p className="text-sm text-ink/50">No responses waiting for review right now.</p>}
+                        {pendingAttempts.map((att) => {
+                          const shortQs = (t.questions || []).map((q, i) => ({ ...q, i })).filter((q) => q.type === "short");
+                          return (
+                            <div key={att.id} className="bg-ink/[0.02] rounded-xl p-4">
+                              <p className="font-semibold text-sm mb-3">{titleCase(att.profiles?.full_name) || "Student"}</p>
+                              <div className="space-y-3">
+                                {shortQs.map((q) => (
+                                  <div key={q.i} className="text-sm">
+                                    <p className="text-ink/70 mb-1">{q.q}</p>
+                                    <p className="bg-white border border-line rounded-lg p-2 mb-2 whitespace-pre-wrap">{att.answers?.[q.i] || <span className="text-ink/40">No answer given</span>}</p>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => toggleReviewMark(att.id, q.i, true)}
+                                        className={`text-xs font-semibold px-3 py-1.5 rounded-full ${reviewMarks[att.id]?.[q.i] === true ? "bg-leaf text-white" : "bg-ink/[0.05] text-ink/50"}`}
+                                      >
+                                        ✓ Correct
+                                      </button>
+                                      <button
+                                        onClick={() => toggleReviewMark(att.id, q.i, false)}
+                                        className={`text-xs font-semibold px-3 py-1.5 rounded-full ${reviewMarks[att.id]?.[q.i] === false ? "bg-spark text-white" : "bg-ink/[0.05] text-ink/50"}`}
+                                      >
+                                        ✗ Incorrect
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <button
+                                onClick={() => saveReview(att.id)}
+                                disabled={gradingId === att.id || shortQs.some((q) => reviewMarks[att.id]?.[q.i] === undefined)}
+                                className="btn-primary text-sm py-1.5 mt-3"
+                              >
+                                {gradingId === att.id ? "Saving..." : "Save grade"}
+                              </button>
+                              {gradeStatus[att.id] && <p className="text-xs text-spark mt-1">{gradeStatus[att.id]}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          </div>
         )}
 
         {tab === "remarks" && (

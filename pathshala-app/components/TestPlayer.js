@@ -9,13 +9,14 @@ export default function TestPlayer({ test, studentId, onDone }) {
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
   const [pointsAwarded, setPointsAwarded] = useState(0);
+  const [pendingReview, setPendingReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const questions = test.questions || [];
   const mcqQuestions = questions.filter((q) => q.type !== "short");
   const shortQuestions = questions.filter((q) => q.type === "short");
-  const maxPoints = mcqQuestions.length * 10;
+  const maxPoints = questions.length * 10;
 
   function selectAnswer(qIndex, optionIndex) {
     setAnswers((a) => ({ ...a, [qIndex]: optionIndex }));
@@ -45,6 +46,7 @@ export default function TestPlayer({ test, studentId, onDone }) {
     setScore(result.score);
     setTotal(result.total);
     setPointsAwarded(result.pointsAwarded);
+    setPendingReview(result.pendingReview);
     setSubmitted(true);
     setSubmitting(false);
 
@@ -59,11 +61,12 @@ export default function TestPlayer({ test, studentId, onDone }) {
         <p className="font-display text-4xl font-extrabold text-gradient relative">
           {score} / {total}
         </p>
-        <p className="text-sm text-leaf font-semibold mt-2 relative">+{pointsAwarded} points added to your profile 🎉</p>
-        {shortQuestions.length > 0 && (
-          <p className="text-xs text-ink/50 mt-2 relative">
-            Your {shortQuestions.length} short-answer response{shortQuestions.length > 1 ? "s were" : " was"} submitted too — these aren't auto-scored.
+        {pendingReview ? (
+          <p className="text-sm text-saffron font-semibold mt-2 relative">
+            Score shown is MCQs only — your teacher still needs to grade {shortQuestions.length} short-answer response{shortQuestions.length > 1 ? "s" : ""}. Points will be added once that's done.
           </p>
+        ) : (
+          <p className="text-sm text-leaf font-semibold mt-2 relative">+{pointsAwarded} points added to your profile 🎉</p>
         )}
       </div>
     );
