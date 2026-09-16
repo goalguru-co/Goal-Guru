@@ -13,7 +13,7 @@ import { isLikelyUrl, titleCase } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 const CLASS_OPTIONS = [6, 7, 8, 9, 10];
-const TABS = ["overview", "attendance", "assignments", "tests", "notes", "remarks", "analytics", "doubts"];
+const TABS = ["overview", "attendance", "assignments", "tests", { key: "live", label: "Live Class" }, "notes", "remarks", "analytics", "doubts"];
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -71,6 +71,11 @@ export default function TeacherDashboard() {
   const [materialForm, setMaterialForm] = useState({ classLevel: "6", title: "", fileUrl: "" });
   const [myMaterial, setMyMaterial] = useState([]);
 
+  // Live classes
+  const [liveForm, setLiveForm] = useState({ classLevel: "6", title: "", link: "", scheduledDate: "", scheduledTime: "" });
+  const [myLiveClasses, setMyLiveClasses] = useState([]);
+  const [editingLiveId, setEditingLiveId] = useState(null);
+
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -107,6 +112,7 @@ export default function TeacherDashboard() {
       loadAssignments(session.user.id);
       loadMyMaterial(session.user.id);
       loadTests(session.user.id);
+      loadMyLiveClasses(session.user.id);
       setLoading(false);
     }
     init();
@@ -145,6 +151,53 @@ export default function TeacherDashboard() {
   async function deleteMaterial(id) {
     await supabase.from("study_material").delete().eq("id", id);
     loadMyMaterial(session.user.id);
+  }
+
+  async function loadMyLiveClasses(userId) {
+    const { data } = await supabase.from("live_classes").select("*").eq("created_by", userId).order("scheduled_at", { ascending: false });
+    setMyLiveClasses(data || []);
+  }
+
+  async function submitLiveClass(e) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setStatus(editingLiveId ? "Updating live class..." : "Scheduling live class...");
+    const payload = {
+      class_level: parseInt(liveForm.classLevel, 10),
+      subject: profile?.subject,
+      title: liveForm.title.trim(),
+      youtube_id: liveForm.link.trim(),
+      scheduled_at: new Date(`${liveForm.scheduledDate}T${liveForm.scheduledTime || "00:00"}`).toISOString(),
+      created_by: session.user.id,
+    };
+    const { error } = editingLiveId
+      ? await supabase.from("live_classes").update(payload).eq("id", editingLiveId)
+      : await supabase.from("live_classes").insert(payload);
+    setStatus(error ? "Error: " + error.message : editingLiveId ? "Live class updated." : "Live class scheduled.");
+    if (!error) {
+      setLiveForm({ classLevel: "6", title: "", link: "", scheduledDate: "", scheduledTime: "" });
+      setEditingLiveId(null);
+      loadMyLiveClasses(session.user.id);
+    }
+    setSaving(false);
+  }
+
+  function editLiveClass(l) {
+    const dt = new Date(l.scheduled_at);
+    setLiveForm({
+      classLevel: String(l.class_level),
+      title: l.title,
+      link: l.youtube_id,
+      scheduledDate: dt.toISOString().slice(0, 10),
+      scheduledTime: dt.toTimeString().slice(0, 5),
+    });
+    setEditingLiveId(l.id);
+  }
+
+  async function deleteLiveClass(id) {
+    await supabase.from("live_classes").delete().eq("id", id);
+    loadMyLiveClasses(session.user.id);
   }
 
   async function loadSubmissions(assignmentId) {
@@ -613,6 +666,55 @@ export default function TeacherDashboard() {
                         ))}
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "live" && (
+          <div className="space-y-6">
+            <form onSubmit={submitLiveClass} className="card p-6 space-y-4 max-w-lg">
+              <select className="input-field" value={liveForm.classLevel} onChange={(e) => setLiveForm({ ...liveForm, classLevel: e.target.value })}>
+                {CLASS_OPTIONS.map((c) => <option key={c} value={c}>Class {c}</option>)}
+              </select>
+              <div className="text-sm text-ink/60">Subject: <span className="font-semibold text-ink">{profile?.subject}</span></div>
+              <input required placeholder="Title" className="input-field" value={liveForm.title} onChange={(e) => setLiveForm({ ...liveForm, title: e.target.value })} />
+              <div>
+                <input required placeholder="Zoom/Google Meet join link, or YouTube Live link" className="input-field" value={liveForm.link} onChange={(e) => setLiveForm({ ...liveForm, link: e.target.value })} />
+                <p className="text-xs text-ink/50 mt-1">YouTube links play inline for students. Zoom/Meet/Teams links show a "Join" button instead.</p>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-ink/70">Scheduled date &amp; time</label>
+                <div className="flex gap-3 mt-1">
+                  <input required type="date" className="input-field" value={liveForm.scheduledDate} onChange={(e) => setLiveForm({ ...liveForm, scheduledDate: e.target.value })} />
+                  <input required type="time" className="input-field" value={liveForm.scheduledTime} onChange={(e) => setLiveForm({ ...liveForm, scheduledTime: e.target.value })} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button disabled={saving} className="btn-primary">{saving ? "Saving..." : editingLiveId ? "Update live class" : "Schedule live class"}</button>
+                {editingLiveId && (
+                  <button type="button" onClick={() => { setEditingLiveId(null); setLiveForm({ classLevel: "6", title: "", link: "", scheduledDate: "", scheduledTime: "" }); }} className="btn-secondary">Cancel</button>
+                )}
+              </div>
+            </form>
+
+            <div>
+              <p className="label-eyebrow mb-3">Your scheduled classes</p>
+              <div className="space-y-3">
+                {myLiveClasses.length === 0 && <EmptyState icon="📅" title="No live classes scheduled yet" />}
+                {myLiveClasses.map((l) => (
+                  <div key={l.id} className="card p-4 flex items-center justify-between">
+                    <div>
+                      <p className="label-eyebrow mb-1">{l.subject} — Class {l.class_level}</p>
+                      <p className="font-semibold">{l.title}</p>
+                      <p className="text-xs text-ink/50 mt-1">{new Date(l.scheduled_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => editLiveClass(l)} className="text-xs text-clay font-semibold">Edit</button>
+                      <button onClick={() => deleteLiveClass(l.id)} className="text-xs text-spark font-semibold">Delete</button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -21,6 +21,9 @@ export default function AdminHome() {
   const [saving, setSaving] = useState(false);
   const [upcomingLive, setUpcomingLive] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentForm, setPaymentForm] = useState({ id: null, upiVpa: "", payeeName: "", amount: "" });
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
 
   async function loadStats(userId) {
     const today = new Date().toISOString().slice(0, 10);
@@ -70,9 +73,31 @@ export default function AdminHome() {
       }
       setSession(session);
       loadStats(session.user.id);
+
+      const { data: settings } = await supabase.from("payment_settings").select("*").limit(1).maybeSingle();
+      if (settings) {
+        setPaymentForm({ id: settings.id, upiVpa: settings.upi_vpa || "", payeeName: settings.payee_name || "", amount: settings.amount_paise / 100 });
+      }
     }
     init();
   }, [router]);
+
+  async function submitPaymentSettings(e) {
+    e.preventDefault();
+    if (savingPayment) return;
+    setSavingPayment(true);
+    setPaymentStatus("Saving...");
+    const payload = {
+      upi_vpa: paymentForm.upiVpa.trim(),
+      payee_name: paymentForm.payeeName.trim(),
+      amount_paise: Math.round(parseFloat(paymentForm.amount) * 100),
+    };
+    const { error } = paymentForm.id
+      ? await supabase.from("payment_settings").update(payload).eq("id", paymentForm.id)
+      : await supabase.from("payment_settings").insert(payload);
+    setPaymentStatus(error ? "Error: " + error.message : "Saved.");
+    setSavingPayment(false);
+  }
 
   async function submitAnnouncement(e) {
     e.preventDefault();
@@ -143,6 +168,16 @@ export default function AdminHome() {
             <input placeholder="Image URL (optional)" className="input-field" value={announceForm.imageUrl} onChange={(e) => setAnnounceForm({ ...announceForm, imageUrl: e.target.value })} />
             <button disabled={saving} className="btn-primary w-full">{saving ? "Posting..." : "Post"}</button>
             <StatusPill tone={status.startsWith("Error") ? "error" : "info"}>{status}</StatusPill>
+          </form>
+
+          <form onSubmit={submitPaymentSettings} className="card p-5 space-y-3">
+            <p className="label-eyebrow">UPI payment settings</p>
+            <p className="text-xs text-ink/50">Students see this as a QR code + UPI ID on the Subscribe page, and submit their transaction ID for you to verify under Manage Users.</p>
+            <input required placeholder="Your UPI ID (e.g. school@upi)" className="input-field" value={paymentForm.upiVpa} onChange={(e) => setPaymentForm({ ...paymentForm, upiVpa: e.target.value })} />
+            <input placeholder="Payee name shown to students (optional)" className="input-field" value={paymentForm.payeeName} onChange={(e) => setPaymentForm({ ...paymentForm, payeeName: e.target.value })} />
+            <input required type="number" placeholder="Annual price in ₹ (e.g. 1500)" className="input-field" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
+            <button disabled={savingPayment} className="btn-primary w-full">{savingPayment ? "Saving..." : "Save payment settings"}</button>
+            {paymentStatus && <StatusPill tone={paymentStatus.startsWith("Error") ? "error" : "info"}>{paymentStatus}</StatusPill>}
           </form>
         </div>
       </main>

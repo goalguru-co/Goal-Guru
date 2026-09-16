@@ -26,6 +26,9 @@ export default function ManageUsers() {
   const [subStatus, setSubStatus] = useState({});
   const [userActionStatus, setUserActionStatus] = useState({});
   const [deletingId, setDeletingId] = useState(null);
+  const [pendingClaims, setPendingClaims] = useState([]);
+  const [reviewingClaimId, setReviewingClaimId] = useState(null);
+  const [claimStatus, setClaimStatus] = useState({});
   const [expandedFeesStudent, setExpandedFeesStudent] = useState(null);
   const [studentFees, setStudentFees] = useState([]);
   const [feeInputs, setFeeInputs] = useState({});
@@ -80,7 +83,33 @@ export default function ManageUsers() {
     (activeSubs || []).forEach((s) => { subMap[s.student_id] = s.ends_at; });
 
     setStudents((studentsData || []).map((s) => ({ ...s, subEndsAt: subMap[s.id] || null })));
+
+    const { data: claimsData } = await supabase
+      .from("payment_claims")
+      .select("*, profiles!payment_claims_student_id_fkey(full_name)")
+      .eq("status", "pending")
+      .order("submitted_at", { ascending: true });
+    setPendingClaims(claimsData || []);
+
     setLoading(false);
+  }
+
+  async function reviewClaim(claimId, action) {
+    setReviewingClaimId(claimId);
+    setClaimStatus((s) => ({ ...s, [claimId]: "" }));
+    const { data: { session: current } } = await supabase.auth.getSession();
+    const res = await fetch("/api/review-payment-claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${current?.access_token}` },
+      body: JSON.stringify({ claimId, action }),
+    });
+    const result = await res.json();
+    setReviewingClaimId(null);
+    if (result.error) {
+      setClaimStatus((s) => ({ ...s, [claimId]: "Error: " + result.error }));
+      return;
+    }
+    loadData();
   }
 
   useEffect(() => {
@@ -299,6 +328,34 @@ export default function ManageUsers() {
         </section>
 
         <section className="mb-12">
+          <h2 className="font-display text-xl font-bold mb-2">
+            Payment verification <span className="text-ink/40">({pendingClaims.length})</span>
+          </h2>
+          <p className="text-sm text-ink/60 mb-4">
+            Check the transaction ID against your UPI/bank app before approving — this activates the student's subscription immediately.
+          </p>
+          <div className="space-y-3">
+            {pendingClaims.length === 0 && <p className="text-sm text-ink/50">No payments waiting for verification.</p>}
+            {pendingClaims.map((c) => (
+              <div key={c.id} className="card p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-semibold">{titleCase(c.profiles?.full_name)} <span className="text-xs text-ink/50 font-normal">— Class {c.class_level} · ₹{(c.amount_paise / 100).toFixed(0)}</span></p>
+                  <p className="text-sm text-ink/60">Transaction ID: <span className="font-mono">{c.transaction_id}</span></p>
+                  <p className="text-xs text-ink/40 mt-0.5">Submitted {new Date(c.submitted_at).toLocaleString()}</p>
+                  {claimStatus[c.id] && <div className="mt-1"><StatusPill tone="error">{claimStatus[c.id]}</StatusPill></div>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => reviewClaim(c.id, "approve")} disabled={reviewingClaimId === c.id} className="btn-primary text-sm py-1.5">
+                    {reviewingClaimId === c.id ? "Working..." : "Approve"}
+                  </button>
+                  <button onClick={() => reviewClaim(c.id, "reject")} disabled={reviewingClaimId === c.id} className="btn-secondary text-sm py-1.5">Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-12">
           <h2 className="font-display text-xl font-bold mb-2">Parent-child links</h2>
           <p className="text-sm text-ink/60 mb-4">
             Each parent needs to be linked to their child's student account by phone number.
@@ -363,7 +420,7 @@ export default function ManageUsers() {
           <h2 className="font-display text-xl font-bold mb-2">All students</h2>
           <p className="text-sm text-ink/60 mb-4">
             Grant free access to unlock videos, tests and live classes for a student without
-            a Razorpay payment, or manage their fee records — useful for testing, trials, or offline-paid students.
+            a UPI payment, or manage their fee records — useful for testing, trials, or offline-paid students.
           </p>
           <div className="space-y-3">
             {students.length === 0 && <EmptyState icon="🎓" title="No approved students yet" />}
